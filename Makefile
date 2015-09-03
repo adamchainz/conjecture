@@ -3,6 +3,9 @@ CFLAGS?= --std=c99 -I. -D_XOPEN_SOURCE -Wall -pedantic -Werror -pg
 clean:
 	rm -rf *.o
 
+reformat:
+	clang-format -i conjecture.c conjecture.h
+
 conjecture.o: conjecture.c
 	$(CC) -c $(CFLAGS) conjecture.c
 
@@ -15,3 +18,5 @@ examples/summing_many: conjecture.o examples/summing_many.c
 examples/associative_doubles: conjecture.o examples/associative_doubles.c
 	$(CC) $(CFLAGS) conjecture.o examples/associative_doubles.c -o examples/associative_doubles
 
+
+.PHONY: clean reformat
