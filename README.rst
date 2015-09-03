@@ -14,6 +14,11 @@ behaviour.
 The result is a style of testing that is more natural to use, easier to implement,
 and yet strictly more powerful than classic Quickcheck style property based testing.
 
+It should also be much easier to write bindings to (although it currently isn't
+due to slightly less than well abstracted error handling. This will change)
+because it requires very little deep integration with the type system or model
+of values in the language. All you need are functions.
+
 ------------------
 Development Status
 ------------------
