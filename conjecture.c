@@ -303,7 +303,6 @@ static bool shrink_buffer(conjecture_buffer *destination,
   for (size_t i = 0; i + 1 < source->fill; i++) {
     if ((destination->data[i] > 0) && (destination->data[i + 1] < 0xff)) {
       if (stage == 0) {
-        unsigned char c = destination->data[i];
         destination->data[i] -= 1;
         destination->data[i + 1] += 1;
         return true;
