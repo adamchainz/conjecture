@@ -4,6 +4,14 @@
 
 #include "conjecture.h"
 
+/*
+
+This test demonstrates floating point support. It generates
+three doubles and tries to assert that floating point addition
+is associative. Because it's not, this should fail.
+
+*/
+
 void test_small_sum(conjecture_context *context, void *data){
   assert(data == NULL);
   double x = conjecture_draw_double(context);

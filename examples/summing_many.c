@@ -3,6 +3,19 @@
 
 #include "conjecture.h"
 
+/*
+
+This example demonstrates the built in support for creating
+lists of data. We generate a list of uint64_ts, sum it up, and assert
+that the result is not too large.
+
+This also demonstrates use of conjecture_assume, where we use it to
+prevent overflows in our lists (although these are unsigned integers
+so overflow is perfectly well defined).
+
+*/
+
+
 void test_small_sum(conjecture_context *context, void *data){
   assert(data == NULL);
   conjecture_variable_draw draw;

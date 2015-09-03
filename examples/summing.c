@@ -3,6 +3,17 @@
 
 #include "conjecture.h"
 
+/*
+
+This example draws three small integers, adds them together, and asserts that
+their sum is never too large.
+
+It will usually fail (probability of it not in 200 runs is very low), and when
+it does it should shrink all three numbers down to some triple of integers
+which sums to 26.
+
+*/
+
 void test_small_sum(conjecture_context *context, void *data){
   assert(data == NULL);
   uint64_t x = conjecture_draw_uint64_under(context, 10);
