@@ -32,6 +32,7 @@ licensing@drmaciver.com to enquire about options.
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <math.h>
 
 #define BUFFER_STARTING_SIZE 8
 #define CONJECTURE_EXIT 17
@@ -178,8 +179,45 @@ int64_t conjecture_draw_int64_between(conjecture_context *context,
 double conjecture_draw_fractional_double(conjecture_context *context){
   uint64_t a = conjecture_draw_uint64(context);
   if(a == 0) return 0.0;
-  uint64_t b = conjecture_draw_uint64(context);
+  uint64_t b = conjecture_draw_uint64_under(context, a);
   return ((double)b) / ((double)a);
+}
+
+static double nasty_doubles[16] = {
+  0.0,
+  0.5,
+  1.0 / 3,
+  10e6,
+  10e-6,
+  1.175494351e-38F,
+  2.2250738585072014e-308,
+  1.7976931348623157e+308,
+  3.402823466e+38,
+  9007199254740992,
+  1 - 10e-6,
+  1 + 10e-6,
+  1.192092896e-07,
+  2.2204460492503131e-016,
+  INFINITY,
+  NAN
+};
+
+double conjecture_draw_double(conjecture_context *context){
+  // Start from the other end so that shrinking puts us out of the nasty zone
+  uint8_t branch = 255 - conjecture_draw_uint8(context);
+
+  int64_t integral_part = conjecture_draw_int64(context);
+  double fractional_part = conjecture_draw_fractional_double(context);
+  double alternative = (double)integral_part + fractional_part;
+  if(branch < 32){
+    double base = nasty_doubles[branch & 15];
+    if(branch & 16){
+      base = -base;
+    }
+    return base;
+  } else {
+    return alternative;
+  }
 }
 
 static bool is_failing_test_case(conjecture_comms *comms,

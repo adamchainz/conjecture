@@ -204,6 +204,7 @@ int64_t conjecture_draw_int64_in_range(conjecture_context *context,
   Consumes 9 bytes
 */
 double conjecture_draw_fractional_double(conjecture_context *context);
+double conjecture_draw_double(conjecture_context *context);
 
 /*
   conjecture_variable_draw lets you draw an unknown number of values and then
