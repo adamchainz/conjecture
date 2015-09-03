@@ -42,7 +42,7 @@ mostly produce smaller bytes from a call to getbytes(n).
 The former seems an unambiguous good: If you execute fewer operations and read less data, you're probably doing
 something simpler. Why does the latter matter?
 
-Well, it doens't *intrinsically* matter. But if you can arrange your generators so that they produce simpler
+Well, it doesn't *intrinsically* matter. But if you can arrange your generators so that they produce simpler
 results for lexicographically earlier sequences of bytes then you can arrange your generators so that
 simplification of the underlying stream results in simplified values.
 
@@ -86,7 +86,7 @@ It's a bit more verbose than the corresponding property based tests in something
 
     @given(floats(), floats(), floats())
     def test_associative_doubles(x, y, z):
-        assert (x +y) + z == x + (y + z)
+        assert (x + y) + z == x + (y + z)
 
 But most of that verbosity comes from C and could be cleaned up in a more reasonable language. The need to
 control exactly what your test prints is slightly onerous in any language, but it's more than made up for by
