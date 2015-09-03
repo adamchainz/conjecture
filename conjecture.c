@@ -338,6 +338,12 @@ static bool shrink_buffer(conjecture_buffer *destination,
         return true;
       }
       stage--;
+      if (stage == 0) {
+        destination->data[i] -= 1;
+        destination->data[i + 1] = 0xff;
+        return true;
+      }
+      stage--;
     }
   }
 
