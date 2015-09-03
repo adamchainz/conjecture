@@ -15,9 +15,11 @@ examples/summing: conjecture.o examples/summing.c
 examples/summing_many: conjecture.o examples/summing_many.c
 	$(CC) $(CFLAGS) conjecture.o examples/summing_many.c -o examples/summing_many
 
+examples/reverse_summing_doubles: conjecture.o examples/reverse_summing_doubles.c
+	$(CC) $(CFLAGS) conjecture.o examples/reverse_summing_doubles.c -o examples/reverse_summing_doubles
+
 examples/associative_doubles: conjecture.o examples/associative_doubles.c
 	$(CC) $(CFLAGS) conjecture.o examples/associative_doubles.c -o examples/associative_doubles
-
 
 examples/novalid: conjecture.o examples/novalid.c
 	$(CC) $(CFLAGS) conjecture.o examples/novalid.c -o examples/novalid
