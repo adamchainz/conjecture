@@ -235,7 +235,7 @@ static bool is_failing_test_case(conjecture_comms *comms,
 
 void conjecture_runner_init(conjecture_runner *runner) {
   runner->max_examples = 200;
-  runner->max_buffer_size = 1024 * 1024;
+  runner->max_buffer_size = 1024 * 64;
   int shmid = shmget(IPC_PRIVATE, sizeof(conjecture_comms), IPC_CREAT | 0666);
   if (shmid < 0) {
     fprintf(stderr, "Unable to create shared memory segment\n");
@@ -372,7 +372,7 @@ void conjecture_run_test(conjecture_runner *runner,
   FILE *urandom = fopen("/dev/urandom", "r");
 
   while ((good_examples < runner->max_examples) &&
-         (total_examples < 10 * runner->max_examples)) {
+         (total_examples < 5 * runner->max_examples)) {
     good_examples++;
     total_examples++;
     primary->fill = fread(primary->data, 1, fill, urandom);
@@ -435,6 +435,10 @@ void conjecture_run_test(conjecture_runner *runner,
     printf("No failing test case after %d examples (%d accepted)\n",
            total_examples, good_examples);
     conjecture_buffer_del(primary);
+    if(good_examples * 10 < total_examples) {
+      printf("Failing test due to too few valid examples.\n");
+      exit(EXIT_FAILURE);
+    }
   }
 }
 
