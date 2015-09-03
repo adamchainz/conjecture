@@ -20,7 +20,6 @@ If you wish to make use of it under another license, email
 licensing@drmaciver.com to enquire about options.
 */
 
-
 /*
 
 Conjecture is a new approach to property based testing that blends tests and
@@ -46,7 +45,6 @@ The example is then re-executed with output no longer being suppressed, so you
 can see the intermediate results that your program is printing.
 */
 
-
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -58,10 +56,7 @@ typedef struct {
   unsigned char *data;
 } conjecture_buffer;
 
-typedef struct {
-  bool rejected;
-} conjecture_comms;
-
+typedef struct { bool rejected; } conjecture_comms;
 
 typedef struct {
   conjecture_comms *comms;
@@ -69,7 +64,6 @@ typedef struct {
   conjecture_buffer *buffer;
   size_t current_index;
 } conjecture_context;
-
 
 typedef struct {
   // Once this many examples have been tried and not rejected, conjecture will
@@ -93,10 +87,8 @@ typedef void (*conjecture_test_case)(conjecture_context *context, void *data);
   (this is expected to crash the process). If not, this function prints out
   some diagnostic information and then returns normally.
 */
-void conjecture_run_test(
-  conjecture_runner *runner,
-  conjecture_test_case test_case, void *data
-);
+void conjecture_run_test(conjecture_runner *runner,
+                         conjecture_test_case test_case, void *data);
 
 /*
   Initializes a runner with default settings and sets up the relevant
@@ -149,10 +141,8 @@ void conjecture_assume(conjecture_context *context, bool requirement);
 
   Consumes n bytes
 */
-void conjecture_draw_bytes(
-  conjecture_context *context, size_t n, unsigned char *destination
-);
-
+void conjecture_draw_bytes(conjecture_context *context, size_t n,
+                           unsigned char *destination);
 
 /*
   Draw a single bool
@@ -175,7 +165,6 @@ uint64_t conjecture_draw_uint8(conjecture_context *context);
 */
 uint64_t conjecture_draw_uint64(conjecture_context *context);
 
-
 /*
   Draw a single uint64_t, biased heavily towards small numbers
 
@@ -183,15 +172,13 @@ uint64_t conjecture_draw_uint64(conjecture_context *context);
 */
 uint64_t conjecture_draw_small_uint64(conjecture_context *context);
 
-
 /*
   Draw a uint64_t, x, such that 0 <= x <= max
 
   If max == 0 consumes no bytes, else consumes >= 8 bytes
 */
-uint64_t conjecture_draw_uint64_under(
-  conjecture_context *context, uint64_t max
-);
+uint64_t conjecture_draw_uint64_under(conjecture_context *context,
+                                      uint64_t max);
 
 /*
   Draw an int64_t
@@ -207,10 +194,8 @@ int64_t conjecture_draw_int64(conjecture_context *context);
 
   Fails if lower > upper.
 */
-int64_t conjecture_draw_int64_in_range(
-  conjecture_context *context, int64_t lower, int64_t upper
-);
-
+int64_t conjecture_draw_int64_in_range(conjecture_context *context,
+                                       int64_t lower, int64_t upper);
 
 /*
   conjecture_variable_draw lets you draw an unknown number of values and then
@@ -221,7 +206,7 @@ int64_t conjecture_draw_int64_in_range(
 
   Note that all pointers become invalid as soon as you call another
   conjecture_variable_draw function.
-  
+
   The intended usage pattern is
 
   conjecture_variable_draw_start(&draw, context, sizeof(my_type));
@@ -252,10 +237,9 @@ typedef struct {
 
   Consumes >= 1 bytes.
 */
-void conjecture_variable_draw_start(
-  conjecture_variable_draw *variable, conjecture_context *context,
-  size_t object_size
-);
+void conjecture_variable_draw_start(conjecture_variable_draw *variable,
+                                    conjecture_context *context,
+                                    size_t object_size);
 
 /*
   Advances to the next location to write a value and returns true, or returns
@@ -270,7 +254,7 @@ bool conjecture_variable_draw_advance(conjecture_variable_draw *variable);
   The pointer is guaranteed to have object_size bytes available but may not
   have more than that.
 
-  Consumes no bytes.  
+  Consumes no bytes.
 */
 char *conjecture_variable_draw_target(conjecture_variable_draw *variable);
 
@@ -280,6 +264,6 @@ char *conjecture_variable_draw_target(conjecture_variable_draw *variable);
   Further use of variable is invalid without another call to start. The caller
   is responsible for freeing the returned memory.
 
-  Consumes no bytes.  
+  Consumes no bytes.
 */
 char *conjecture_variable_draw_complete(conjecture_variable_draw *variable);
