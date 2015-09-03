@@ -207,7 +207,7 @@ double conjecture_draw_fractional_double(conjecture_context *context);
 /*
   Draw an arbitrary double (may include nan, infinity, etc).
 
-  Consumes >= 18 bytes
+  Consumes >= 1 bytes
 */
 double conjecture_draw_double(conjecture_context *context);
 

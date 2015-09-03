@@ -192,10 +192,6 @@ static double nasty_doubles[16] = {
 double conjecture_draw_double(conjecture_context *context) {
   // Start from the other end so that shrinking puts us out of the nasty zone
   uint8_t branch = 255 - conjecture_draw_uint8(context);
-
-  int64_t integral_part = conjecture_draw_int64(context);
-  double fractional_part = conjecture_draw_fractional_double(context);
-  double alternative = (double)integral_part + fractional_part;
   if (branch < 32) {
     double base = nasty_doubles[branch & 15];
     if (branch & 16) {
@@ -203,7 +199,9 @@ double conjecture_draw_double(conjecture_context *context) {
     }
     return base;
   } else {
-    return alternative;
+    int64_t integral_part = conjecture_draw_int64(context);
+    double fractional_part = conjecture_draw_fractional_double(context);
+    return (double)integral_part + fractional_part;
   }
 }
 
