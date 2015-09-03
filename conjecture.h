@@ -197,13 +197,18 @@ int64_t conjecture_draw_int64(conjecture_context *context);
 int64_t conjecture_draw_int64_in_range(conjecture_context *context,
                                        int64_t lower, int64_t upper);
 
-
 /*
   Draw a double in the closed interval [0, 1].
 
-  Consumes 9 bytes
+  Consumes >= 9 bytes
 */
 double conjecture_draw_fractional_double(conjecture_context *context);
+
+/*
+  Draw an arbitrary double (may include nan, infinity, etc).
+
+  Consumes >= 18 bytes
+*/
 double conjecture_draw_double(conjecture_context *context);
 
 /*
@@ -276,4 +281,3 @@ char *conjecture_variable_draw_target(conjecture_variable_draw *variable);
   Consumes no bytes.
 */
 char *conjecture_variable_draw_complete(conjecture_variable_draw *variable);
-
