@@ -175,6 +175,13 @@ int64_t conjecture_draw_int64_between(conjecture_context *context,
   }
 }
 
+double conjecture_draw_fractional_double(conjecture_context *context){
+  uint64_t a = conjecture_draw_uint64(context);
+  if(a == 0) return 0.0;
+  uint64_t b = conjecture_draw_uint64(context);
+  return ((double)b) / ((double)a);
+}
+
 static bool is_failing_test_case(conjecture_comms *comms,
                                  conjecture_buffer *buffer,
                                  conjecture_test_case test_case, void *data) {
@@ -314,7 +321,7 @@ static bool shrink_buffer(conjecture_buffer *destination,
   return false;
 }
 
-void print_buffer(conjecture_buffer *buffer) {
+static void print_buffer(conjecture_buffer *buffer) {
   printf("[");
   for (size_t i = 0; i < buffer->fill; i++) {
     if (i > 0)

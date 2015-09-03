@@ -11,3 +11,7 @@ examples/summing: conjecture.o examples/summing.c
 
 examples/summing_many: conjecture.o examples/summing_many.c
 	$(CC) $(CFLAGS) conjecture.o examples/summing_many.c -o examples/summing_many
+
+examples/associative_doubles: conjecture.o examples/associative_doubles.c
+	$(CC) $(CFLAGS) conjecture.o examples/associative_doubles.c -o examples/associative_doubles
+
