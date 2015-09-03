@@ -19,6 +19,9 @@ due to slightly less than well abstracted error handling. This will change)
 because it requires very little deep integration with the type system or model
 of values in the language. All you need are functions.
 
+If you want to know more about how it works, there is a `rough design doc also
+checked in to this repo <docs/design.rst>`_.
+
 ------------------
 Development Status
 ------------------
