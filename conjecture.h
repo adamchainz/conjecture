@@ -269,10 +269,17 @@ bool conjecture_variable_draw_advance(conjecture_variable_draw *variable);
   A pointer to where to write the next value if one is available, else NULL.
   The pointer is guaranteed to have object_size bytes available but may not
   have more than that.
+
+  Consumes no bytes.  
 */
 char *conjecture_variable_draw_target(conjecture_variable_draw *variable);
 
 /*
   Return a finished pointer to where the data has been written.
+
+  Further use of variable is invalid without another call to start. The caller
+  is responsible for freeing the returned memory.
+
+  Consumes no bytes.  
 */
 char *conjecture_variable_draw_complete(conjecture_variable_draw *variable);
