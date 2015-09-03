@@ -20,7 +20,7 @@ Development Status
 
 Conjecture is currently not even alpha quality. It is very much a proof of the
 concept, and I intend to make it into production ready software, but it's just
-not there yet. It's not even hanging out in the same time sonze.
+not there yet. It's not even hanging out in the same time zone.
 
 I'll be working on it a fair bit, but there's quite a lot to do and it's more
 likely to make progress if someone is interested in paying for the work.
