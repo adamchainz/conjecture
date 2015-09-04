@@ -410,7 +410,7 @@ I've got working implementations of all the core primitives and combinators that
 So far I've not been able to find any examples where Conjecture is significantly worse at simplifying than
 Hypothesis is. This *is* biased towards examples that are not completely painful to write in C, and it's not
 as thoroughly tested as all that, but it's still pretty impressive given that Conjecture's simplification is
-a really bad implementation I wrote in about an hour, while Hypothesis has had some pretty intensense tuning
+a really bad implementation I wrote in about an hour, while Hypothesis has had some pretty intense tuning
 and probably has the most advanced simplification of any open source Quickcheck implementation.
 
 One major question is whether the simplification will work well and *fast* for complex data. Currently
