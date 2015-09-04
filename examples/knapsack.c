@@ -8,27 +8,24 @@
 
 /*
 This is testing a (bad) solution to the knapsack packing problem, based off the
-principles
-outlined in
+principles outlined in
 http://www.drmaciver.com/2015/07/properties-for-testing-optimisation/
 
 It's here to demonstrate a couple things:
 
-First, this is a fairly non-trivial data generation and testing problem. Some of
-the data we
-generate depends on other data we generate in interesting ways - e.g. we
-deliberately pick the
-capacity of the knapsack to be no larger than the total weight of the items.
+First, this is a fairly non-trivial data generation and testing problem. Some
+of the data we generate depends on other data we generate in interesting ways -
+e.g. we deliberately pick the capacity of the knapsack to be no larger than the
+total weight of the items.
 
 We also mix test execution and data generation: Note how in the middle of the
-test we pick a random
-index from the ones that were chosen by the knapsack selection algorithm.
+test we pick a random index from the ones that were chosen by the knapsack
+selection algorithm.
 
 This partly existed to see how well it simplifed. The answer is "It simplifies
-great". Which is nice,
-because this is a problem that Hypothesis simplifies quite badly. This is one of
-those cases where
-Conjecture's ability to escape local minima by accident is quite useful.
+great". Which is nice, because this is a problem that Hypothesis simplifies
+quite badly. This is one of those cases where Conjecture's ability to escape
+local minima by accident is quite useful.
 */
 
 typedef struct {
