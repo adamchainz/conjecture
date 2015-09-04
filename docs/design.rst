@@ -255,7 +255,7 @@ Here is the code the current prototype uses to generate an unsigned 64 bit integ
 
 It reads 8 bytes for the integer off in big endian format. Why big endian? Because "simplicity" for a getbytes
 call is specifically defined in lexicographic order: One block of n bytes is simpler than another block of n
-bytes if it is smaller in the first byte they differ.
+bytes if it is smaller (interpreted as an unsigned integer between 0 and 255) in the first byte they differ.
 
 This corresponds precisely to the order of the blocks as big-endian integers: Reducing a high byte always
 reduces the integer more than reducing a low byte. If we'd instead read the integer off in little endian order
