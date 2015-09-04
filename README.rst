@@ -4,7 +4,16 @@ Conjecture
 
 Conjecture is a new approach to property based testing in C.
 
-The idea is that instead of having distinct concepts of example generation and
+The core concept of Conjecture is: What if you could do the most basic sort of
+randomized testing which everybody starts out with, only instead of it being awful
+it was actually amazing?
+
+Classic property based testing has a strict separation between example generation
+and testing, which makes it very hard to use for tests that don't easily match that
+discipline. Suppose I want to do some calculation and then pick a random element of
+the result. How do I do that?
+
+In Conjecture, instead of having distinct concepts of example generation and
 tests, everything is a test and everything can generate examples. Testing is a
 simple matter of writing functions which take a type of random number generator
 but whose output is under Conjecture's control and can be controlled to produce
@@ -13,11 +22,6 @@ behaviour.
 
 The result is a style of testing that is more natural to use, easier to implement,
 and yet strictly more powerful than classic Quickcheck style property based testing.
-
-It should also be much easier to write bindings to (although it currently isn't
-due to slightly less than well abstracted error handling. This will change)
-because it requires very little deep integration with the type system or model
-of values in the language. All you need are functions.
 
 If you want to know more about how it works, there is a `rough design doc also
 checked in to this repo <docs/design.rst>`_.
