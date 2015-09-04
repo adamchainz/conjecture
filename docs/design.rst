@@ -31,10 +31,14 @@ Currently this is simply a matter of drawing from /dev/urandom. In future it wil
 complicated. The goal is also to let you be able to use American Fuzzy Lop to feed test programs with it (this
 should be very easy to do).
 
-Once it has found such a sequence it proceeds to attempt to simplify the sequence according to the rules that
-one sequence is simpler than another if it is either strictly shorter or the same length but lexicographically
-before (i.e. lowering a byte earlier in the sequence will always make the result simpler regardless of what you
-do to the rest).
+Once it has found such a sequence it tries to find a "simpler" sequence of bytes that will still trigger an
+error. One sequence is simpler than another if either it is strictly shorter, or if it is of the same length
+but lexicographically before (i.e. on the first byte they differ it has a lower byte).
+
+Thus, once we find a sequence of bytes that causes the test to fail, we try it again with other simpler but
+similar sequences of bytes. For example we might trim bytes off the end, or delete sections in the middle, or
+we might try zeroing out some bytes, etc. If a simpler sequence also causes the test to fail, we replace our
+current best sequence with that one and try to simplify it further.
 
 What this means in practice is that we are looking for programs which a) Execute fewer operations and b)
 mostly produce smaller bytes from a call to getbytes(n).
@@ -42,9 +46,10 @@ mostly produce smaller bytes from a call to getbytes(n).
 The former seems an unambiguous good: If you execute fewer operations and read less data, you're probably doing
 something simpler. Why does the latter matter?
 
-Well, it doesn't *intrinsically* matter. But if you can arrange your generators so that they produce simpler
-results for lexicographically earlier sequences of bytes then you can arrange your generators so that
-simplification of the underlying stream results in simplified values.
+Well, it doesn't *intrinsically* matter. It's a somewhat arbitrary choice, though turns out to be a convenient one
+for a variety of reasons. But for any consistent choice of simplification if you can arrange your
+generators so that they produce simpler results for simpler sequences of bytes then you can arrange your
+generators so that simplification of the underlying stream results in simplified values.
 
 For example, when drawing an n-byte integer as long as you do it in big-endian format, simplifying the n bytes
 lexicographically corresponds to shrinking the integer according to the ordering that positive is simpler than
