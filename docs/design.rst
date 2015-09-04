@@ -190,3 +190,153 @@ It's not particularly user friendly, but you should see the Hypothesis one...
 In particular, floating point simplification for Hypothesis was a complete pain to write and has never really
 worked very well, whileas in this case by picking some good primitives to build off we've got something that
 works more or less out of the box with really not very much effort.
+
+
+----------------
+How do I use it?
+----------------
+
+Right now Conjecture is implemented as a C library (bindings are totally possible and will be coming) and you
+can check out `some usage examples in the git repo <https://github.com/DRMacIver/conjecture/tree/master/examples>`_.
+
+This section is more intended to be a high level description of how to write tests and generators with it.
+
+Writing tests
+~~~~~~~~~~~~~~
+
+Writing tests is easy: You write a function that takes a conjecture_context and some optional payload data,
+you call some data generation functions (either your own or Conjecture provided ones) using that context, you
+print some output to give you the information you want out of your test (e.g. what values are generated) and then
+you let conjecture run it.
+
+Writing data generators
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Writing data generators is relatively easy but requires a little bit of care if you want to get good examples
+with simplification.
+
+The core idea is that you simply write data generators by calling other data generators and building on the
+results. Everything else should work out for you.
+
+However there are some useful principles to bear in mind that will cause things to work out *better* for you.
+
+Simpler inputs lead to simpler outputs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+Here is the code the current prototype uses to generate an unsigned 64 bit integer:
+
+.. code-block:: C
+
+    uint64_t conjecture_draw_uint64(conjecture_context *context) {
+      unsigned char length = conjecture_draw_uint8(context) & 7;
+      unsigned char buffer[8];
+      conjecture_draw_bytes(context, 8, buffer);
+      uint64_t result = 0;
+      for(int i = 0; i <= length; i++) {
+        result = (result << 8) + (uint64_t)buffer[i];
+      }
+      return result;
+    }
+
+It reads 8 bytes for the integer off in big endian format. Why big endian? Because "simplicity" for a getbytes
+call is specifically defined in lexicographic order: One block of n bytes is simpler than another block of n
+bytes if it is smaller in the first byte they differ.
+
+This corresponds precisely to the order of the blocks as big-endian integers: Reducing a high byte always
+reduces the integer more than reducing a low byte. If we'd instead read the integer off in little endian order
+then 256 would be simpler than 1 because the byte at which they differ comes later.
+
+Simplifying earlier generators may change later generators
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+There's something that is both a feature and a bug about simplifying the underlying data stream: It creates
+unintentional dependencies between data.
+
+For example, suppose I have the following code from one of the examples above:
+
+.. code-block:: C
+
+      double x = conjecture_draw_double(context);
+      double y = conjecture_draw_double(context);
+
+Simplifying doubles will push them towards examples that are closer to small integers.
+
+However, simplifying x may completely change the values drawn for y! It might become simpler, it might become
+more complicated. There's no way to predict. It's essentially an entirely fresh draw.
+ 
+The reason is that there are no "boundaries" in the underlying byte stream, and generators may consume a
+variable number of bytes. So if simplifying x changes the number of bytes the generator consumes, it will
+result in y starting from a completely different index into the data stream than it did before and thus getting
+a different result.
+
+We're never actually "undoing" progress, because progress is happening on the underlying
+data stream, but it can seem that we may locally move from simpler examples to more complicated ones.
+
+This is both good and bad. It's bad because it may block some simplifications - a simplification of x may be
+valid but unusable because it would cause y to change to something that no longer triggers the problem. It's
+good because it may enable simplifications - classically simplification can tend to get stuck in local minima,
+and allowing it to sometimes increase perceived complexity can actually help produce better end results.
+
+On balance it seems more bad than good, but it doesn't seem to be a major problem in practice.
+
+The key to avoiding it seems to be that as your generator is simplified it should become "stable" in the number
+of bytes it consumes from the underlying data. For example, here's the generator for drawing a bounded uint64_t:
+
+.. code-block:: C
+
+
+    uint64_t conjecture_draw_uint64_under(conjecture_context *context,
+                                          uint64_t max_value) {
+      if(max_value == 0) {
+        return 0;
+      }
+      uint64_t mask = saturate(max_value);
+      while(true) {
+        uint64_t probe = mask & conjecture_draw_uint64(context);
+        if(probe <= max_value) {
+          return probe;
+        }
+      }
+    }
+
+This consumes a variable number of bytes, but if you simplify the high most bytes down it rapidly converges
+to only consuming a fixed number (8) of bytes. From that point on, simplification of the value becomes stable
+and won't change subsequent calls.
+
+Try to make calls deletable
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Often generators which call variable numbers of other generators will do so in some predictable pattern. e.g.
+through a repeated call to some other generator.
+
+If possible, you should try to make it so that if some of these calls are replaced with values to later calls,
+this would stop the process early.
+
+For example, here is the Conjecture code for generating a null terminated string:
+
+
+.. code-block:: C
+
+    char *conjecture_draw_string(conjecture_context *context) {
+      size_t max_length = (size_t)conjecture_draw_small_uint64(context);
+      char *data = malloc(max_length + 1);
+      for(size_t i = 0; i < max_length; i++) {
+        unsigned char c;
+        conjecture_draw_bytes(context, 1, &c);
+        data[i] = c;
+        if(c == 0)
+          return data;
+      }
+      data[max_length] = 0;
+      return data;
+    }
+
+We do decide on the length up front, but we also have the option of stopping early: If any point we happen
+to generate a null character, we stop right there and then. This means that if a chunk of the draws in the middle
+were deleted, we would just generate a shorter string.
+
+This can be somewhat in tension with the previous heuristic, but in practice it actually often isn't: e.g. deleting
+a chunk of characters in the middle of the string actually leaves the bytes read after the string perfectly
+preserved. If you lower a byte in the string to zero it *will* change the subsequent calls, but because deletion
+is tried first this will usually stabilize pretty reasonably.
