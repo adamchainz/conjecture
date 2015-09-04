@@ -346,3 +346,28 @@ This can be somewhat in tension with the previous heuristic, but in practice it 
 a chunk of characters in the middle of the string actually leaves the bytes read after the string perfectly
 preserved. If you lower a byte in the string to zero it *will* change the subsequent calls, but because deletion
 is tried first this will usually stabilize pretty reasonably.
+
+
+Details of the C implementation
+-------------------------------
+
+These will almost certainly change massively as the code evolves and I start trying to support platforms that
+aren't my development laptop, but here's how it currently works:
+
+All tests are written under the assumption that they may crash the process, so the way to report errors is to
+just do anything that will cause you to exit with a non-zero status code. e.g. assertions work perfectly fine,
+either in test code or outside of it. Notably, something that causes a premature exit with a status code of zero
+is *not* considered a test failure. It could easily be made to be if neccessary but I don't currently have a good
+argument in favour of it doing so.
+
+In aid of this, running a test forks, immediately redirects stdout and stdin to /dev/null, then executes the
+test function.
+
+A very small shared memory segment is maintained for communicating with the parent process. Currently it just
+contains a single boolean flag that indicates whether an example was rejected (which usually means it tried to
+read past the end of the buffer, although you can also explicitly reject an example).
+
+This allows us to safely test whether a buffer should cause a failure without worrying about crashing or
+corrupting the controlling process. Then if and when we *do* find a failure, the final step is that we run the
+failing test case in the controlling process. This *should* crash the process. If it does not, we complain about
+the test being flaky and crash the process anyway.
