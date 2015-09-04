@@ -14,7 +14,7 @@ which sums to 26.
 
 */
 
-void test_small_sum(conjecture_context *context, void *data){
+void test_small_sum(conjecture_context *context, void *data) {
   assert(data == NULL);
   uint64_t x = conjecture_draw_uint64_under(context, 10);
   uint64_t y = conjecture_draw_uint64_under(context, 10);
@@ -25,9 +25,9 @@ void test_small_sum(conjecture_context *context, void *data){
   assert(x + y + z <= 25);
 }
 
-int main(){
+int main() {
   conjecture_runner runner;
   conjecture_runner_init(&runner);
-  conjecture_run_test(&runner, test_small_sum, NULL);  
+  conjecture_run_test(&runner, test_small_sum, NULL);
   conjecture_runner_release(&runner);
 }

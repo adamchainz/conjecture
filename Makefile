@@ -4,7 +4,7 @@ clean:
 	rm -rf *.o
 
 reformat:
-	clang-format -i conjecture.c conjecture.h
+	clang-format -i conjecture.c conjecture.h examples/*.c
 
 conjecture.o: conjecture.c
 	$(CC) -c $(CFLAGS) conjecture.c
