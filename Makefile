@@ -30,6 +30,9 @@ examples/novalid: conjecture.o examples/novalid.c
 examples/unsorted_strings: conjecture.o examples/unsorted_strings.c
 	$(CC) $(CFLAGS) conjecture.o examples/unsorted_strings.c -o examples/unsorted_strings
 
+examples/knapsack: conjecture.o examples/knapsack.c
+	$(CC) $(CFLAGS) conjecture.o examples/knapsack.c -o examples/knapsack
+
 
 
 .PHONY: clean reformat
