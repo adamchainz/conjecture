@@ -48,7 +48,6 @@ can see the intermediate results that your program is printing.
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <stdio.h>
 
 typedef struct {
   size_t capacity;
@@ -60,7 +59,6 @@ typedef struct { bool rejected; } conjecture_comms;
 
 typedef struct {
   conjecture_comms *comms;
-  FILE *output;
   conjecture_buffer *buffer;
   size_t current_index;
 } conjecture_context;

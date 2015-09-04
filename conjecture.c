@@ -33,6 +33,7 @@ licensing@drmaciver.com to enquire about options.
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <math.h>
+#include <stdio.h>
 
 #define BUFFER_STARTING_SIZE 8
 #define CONJECTURE_EXIT 17
@@ -62,16 +63,6 @@ void conjecture_reject(conjecture_context *context) {
 void conjecture_assume(conjecture_context *context, bool condition) {
   if(!condition)
     conjecture_reject(context);
-}
-
-void conjecture_report(conjecture_context *context, const char *fmt, ...) {
-  if(context->output == NULL)
-    return;
-  va_list args;
-  va_start(args, fmt);
-  vfprintf(context->output, fmt, args);
-  va_end(args);
-  fflush(context->output);
 }
 
 void conjecture_draw_bytes(conjecture_context *context, size_t n,
@@ -233,7 +224,6 @@ static bool is_failing_test_case(conjecture_comms *comms,
     dup2(devnull, STDERR_FILENO);
     conjecture_context context;
     context.comms = comms;
-    context.output = NULL;
     context.buffer = buffer;
     context.current_index = 0;
     test_case(&context, data);
@@ -445,7 +435,6 @@ void conjecture_run_test(conjecture_runner *runner,
 
     conjecture_context context;
     context.comms = runner->comms;
-    context.output = stdout;
     context.buffer = primary;
     context.current_index = 0;
     test_case(&context, data);
