@@ -30,6 +30,19 @@ If you want to see some examples of usage, there's `a collection of simple tests
 <https://github.com/DRMacIver/conjecture/tree/master/examples>`_ (most or all of
 which fail) in the repo demonstrating some common behaviours and approaches.
 
+
+----------
+Community
+----------
+
+Conjecture is very young and doesn't really have a community of its own, but
+discussion of it is extremely welcome in the `Hypothesis Community <http://hypothesis.readthedocs.org/en/latest/community.html>`_.
+
+In particular we have the IRC channel #hypothesis on Freenode.
+
+Please note that there is `a code of conduct <http://hypothesis.readthedocs.org/en/latest/community.html#code-of-conduct>`_
+in effect in this community and you are expected to adhere to it.
+
 ------------------
 Development Status
 ------------------
