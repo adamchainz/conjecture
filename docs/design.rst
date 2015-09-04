@@ -197,6 +197,14 @@ In particular, floating point simplification for Hypothesis was a complete pain 
 worked very well, whileas in this case by picking some good primitives to build off we've got something that
 works more or less out of the box with really not very much effort.
 
+In general Hypothesis has done a pretty good job of demonstrating the thesis that designing generators so that
+they simplify well when you pass in simplified arguments is an effective strategy, and the cases where I was
+worried that Conjecture would not simplify well do not appear to be major problems.
+
+It is possible that Conjecture will turn out to provide less effective simplification than Quickcheck, but I
+think that it's already demonstrated that it produces simplification that is good enough that any shortfall is
+more than made up for by its benefits, and I actually think it's possible that Conjecture's approach will prove
+better over all because it's more able to escape local minima.
 
 ----------------
 How do I use it?
