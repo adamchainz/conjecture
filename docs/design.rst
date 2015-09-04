@@ -379,3 +379,19 @@ This allows us to safely test whether a buffer should cause a failure without wo
 corrupting the controlling process. Then if and when we *do* find a failure, the final step is that we run the
 failing test case in the controlling process. This *should* crash the process. If it does not, we complain about
 the test being flaky and crash the process anyway.
+
+
+References
+----------
+
+* Property based testing in its modern incarnations almost all are derived from
+  `Quickcheck <https://hackage.haskell.org/package/QuickCheck>`_.
+* Much of the work that Conjecture is built on comes from advances I made to the core ideas of Quickcheck in
+  `Hypothesis <http://hypothesis.readthedocs.org/en/latest/>`_.
+* This sort of inversion where you are given a function to call from your tests that controls the testing
+  behaviour has been done before in `"eXplode:a Lightweight, General System for Finding Serious Storage
+  System Errors" <http://web.stanford.edu/~engler/explode-osdi06.pdf>`_ by Junfeng Yang, Can Sar, and
+  Dawson Engler and Stanford. This was designed for deterministically exploring all possible paths and thus
+  lacks many of the things that make Conjecture really exciting, but is nevertheless a very similar concept.
+* I derived a lot of insights about effectively exploring non-trivial program state using byte streams from the
+  `American Fuzzy Lop <http://lcamtuf.coredump.cx/afl/>`_, a security oriented fuzzer.
