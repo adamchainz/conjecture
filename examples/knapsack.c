@@ -22,16 +22,26 @@ We also mix test execution and data generation: Note how in the middle of the
 test we pick a random index from the ones that were chosen by the knapsack
 selection algorithm.
 
-This partly existed to see how well it simplifed. The answer is "It simplifies
-great". Which is nice, because this is a problem that Hypothesis simplifies
-quite badly. This is one of those cases where Conjecture's ability to escape
-local minima by accident is quite useful.
+This partly existed to see how well it simplifed. The answer is that it runs
+into problems, but they're more or less the same sort of problems that
+Hypothesis runs into. Certainly it doesn't simplify terribly.
+
 */
 
 typedef struct {
   uint64_t weight;
   uint64_t value;
 } knapsack_item;
+
+int compare_item(const void *x, const void *y) {
+  const knapsack_item *xi = x;
+  const knapsack_item *yi = y;
+  if(xi->value > yi->value)
+    return -1;
+  if(yi->value > xi->value)
+    return 1;
+  return 0;
+}
 
 typedef struct {
   size_t n_items;
@@ -40,7 +50,8 @@ typedef struct {
 } knapsack_problem;
 
 void print_knapsack(knapsack_problem *problem) {
-  printf("Knapsack. Capacity %" PRIu64 ". Candidates: ", problem->capacity);
+  printf("Knapsack. Capacity %" PRIu64 ". %zu candidates: ", problem->n_items,
+         problem->capacity);
   for(size_t i = 0; i < problem->n_items; i++) {
     printf("(weight=%" PRIu64 ", value=%" PRIu64 ") ", problem->items[i].weight,
            problem->items[i].value);
@@ -64,6 +75,8 @@ knapsack_problem *draw_knapsack(conjecture_context *context) {
     result->n_items++;
   }
   result->items = (knapsack_item *)conjecture_variable_draw_complete(&draw);
+  qsort(result->items, result->n_items, sizeof(knapsack_item), compare_item);
+
   result->capacity = conjecture_draw_uint64_under(context, total_weight);
   return result;
 }
@@ -85,7 +98,6 @@ bool *solve_knapsack(knapsack_problem *problem) {
 
 void test_increasing_weight_of_chosen_does_not_increase_score(
     conjecture_context *context, void *data) {
-  printf("---------------------\n");
   knapsack_problem *problem = draw_knapsack(context);
   print_knapsack(problem);
   conjecture_assume(context, problem->n_items > 0);
