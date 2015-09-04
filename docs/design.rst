@@ -140,7 +140,8 @@ data. It can take extra arguments or not if you like. Everything more or less ju
 Another big advantage is that it is much easier to implement, and the lack of advanced features makes binding to
 a C implementation a much more viable option. Simplification is the killer feature of Quickcheck, but it's also
 a feature that is hard to do correctly and so most people don't bother. As a result the world is full of bad
-Quickcheck ports.
+Quickcheck ports, and making a version that you can simply bind to instead of writing your own seems like a
+worthwhile endeavour.
 
 -------------
 Does it work?
