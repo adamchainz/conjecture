@@ -12,6 +12,9 @@ conjecture.o: conjecture.c
 examples/summing: conjecture.o examples/summing.c
 	$(CC) $(CFLAGS) conjecture.o examples/summing.c -o examples/summing
 
+examples/flaky: conjecture.o examples/flaky.c
+	$(CC) $(CFLAGS) conjecture.o examples/flaky.c -o examples/flaky
+
 examples/summing_many: conjecture.o examples/summing_many.c
 	$(CC) $(CFLAGS) conjecture.o examples/summing_many.c -o examples/summing_many
 

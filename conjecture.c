@@ -449,6 +449,8 @@ void conjecture_run_test(conjecture_runner *runner,
     context.buffer = primary;
     context.current_index = 0;
     test_case(&context, data);
+    printf("Flaky test! That was supposed to crash but it didn't.\n");
+    exit(EXIT_FAILURE);
   } else {
     printf("No failing test case after %d examples (%d accepted)\n",
            total_examples, good_examples);
