@@ -84,7 +84,7 @@ void conjecture_draw_bytes(conjecture_context *context, size_t n,
   context->current_index += n;
 }
 
-uint64_t conjecture_draw_uint8(conjecture_context *context) {
+uint8_t conjecture_draw_uint8(conjecture_context *context) {
   unsigned char result;
   conjecture_draw_bytes(context, 1, &result);
   return result;

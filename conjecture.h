@@ -156,7 +156,7 @@ bool conjecture_draw_bool(conjecture_context *context);
 
   Consumes 1 byte
 */
-uint64_t conjecture_draw_uint8(conjecture_context *context);
+uint8_t conjecture_draw_uint8(conjecture_context *context);
 
 /*
   Draw a single uint64_t
