@@ -86,11 +86,36 @@ It's a bit more verbose than the corresponding property based tests in something
 
     @given(floats(), floats(), floats())
     def test_associative_doubles(x, y, z):
+        assume(not math.isnan(x + y + z))
         assert (x + y) + z == x + (y + z)
 
-But most of that verbosity comes from C and could be cleaned up in a more reasonable language. The need to
-control exactly what your test prints is slightly onerous in any language, but it's more than made up for by
-the added flexibility:
+Much of that verbosity comes from C and could be cleaned up in a more reasonable language. For example,
+here's how this might look in Python:
+
+.. code-block:: python
+
+    @runtest
+    def test_associative_floats(context):
+        x = declare('x', draw_double(context))
+        y = declare('y', draw_double(context))
+        z = declare('z', draw_double(context))
+        assume(not math.isnan(x + y + z))
+        assert (x + y) + z == x + (y + z)
+
+Where declare is a simple helper function:
+
+.. code-block:: python
+
+    def declare(name, value):
+        print("%s = %r" % (name, value))
+        return value
+
+
+Which lets you readily pare down the excess to the only bit where you genuinely do have to do a little bit of
+extra work: Deciding what you want your test to actually output when it runs. But as well as being a problem this is also a benefit. For example there's no difficulty with printing intermediate
+values in your test run, because they work the same as generated values.
+
+Why is this better?
 
 The *big* thing that people find frustrating in property based testing is the difficult of chaining together
 complex properties. Because example generation and test execution are kept completely separate, it's very hard
