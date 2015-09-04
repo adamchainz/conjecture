@@ -380,6 +380,52 @@ corrupting the controlling process. Then if and when we *do* find a failure, the
 failing test case in the controlling process. This *should* crash the process. If it does not, we complain about
 the test being flaky and crash the process anyway.
 
+Frequently Asked/Anticipated Questions
+--------------------------------------
+
+Why abort the test when you read past the end of the buffer?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In principle you could just generate more random data when you reach the end. Why not do that?
+
+The answer is mostly "It's simpler this way". Conjecture is designed to run its tests in a forked subprocess,
+and it's easier and more resilient to just grow the buffer to the size needed in the controlling process and
+pass it in than to pass a lot of data back to the parent process.
+
+Moreover, the feature of stopping when you hit a certain number of bytes read *is* essential. This doesn't stop
+you growing the buffer, but it does mean you're going to at some point need to do this anyway.
+
+There are two major reasons to do this:
+
+1. It naturally provides a way of bounding you away from the case where you accidentally generate massive
+   examples. This can easily happen by accident when just generating things at random, and having a cap on the
+   number of bytes read will (for most sensible usage patterns) intrinsically prevent that and cause you to
+   sample from the conditional distribution of things that are not ridiculously large.
+2. When simplifying, once you have an example where you have n bytes, as soon as you try to read the n + 1th
+   byte you're definitely not considering a simpler example and thus should discard this immediately rather than
+   wasting time trying to find out whether or not it's a failing example.
+
+Will this work with simplifying complex data?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+It should do! The approach of simplifying inputs to builder functions has been pretty thoroughly proven, and
+I've got working implementations of all the core primitives and combinators that you need.
+
+So far I've not been able to find any examples where Conjecture is significantly worse at simplifying than
+Hypothesis is. This *is* biased towards examples that are not completely painful to write in C, and it's not
+as thoroughly tested as all that, but it's still pretty impressive given that Conjecture's simplification is
+a really bad implementation I wrote in about an hour, while Hypothesis has had some pretty intensense tuning
+and probably has the most advanced simplification of any open source Quickcheck implementation.
+
+One major question is whether the simplification will work well and *fast* for complex data. Currently
+Conjecture's simplification is very inefficient and runs the test far too many times for the number of shrinks
+it actually performs. I'm pretty sure this is fixable though - it's currently lacking most of the major features
+I figured out for how to do efficient simplification in Hypothesis. It's not even deduplicating examples.
+
+How has nobody thought of this before?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+I honestly have no idea.
 
 References
 ----------
