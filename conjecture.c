@@ -115,6 +115,19 @@ uint64_t conjecture_draw_small_uint64(conjecture_context *context) {
   }
 }
 
+char *conjecture_draw_string(conjecture_context *context){
+  size_t max_length = (size_t)conjecture_draw_small_uint64(context);
+  char *data = malloc(max_length + 1);
+  for(size_t i  = 0; i < max_length; i++){
+    unsigned char c;
+    conjecture_draw_bytes(context, 1, &c);
+    data[i] = c;
+    if(c == 0) return data;
+  }
+  data[max_length] = 0;
+  return data;
+}
+
 static uint64_t saturate(uint64_t x) {
   x = x | (x >> 1);
   x = x | (x >> 2);

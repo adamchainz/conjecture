@@ -24,5 +24,9 @@ examples/associative_doubles: conjecture.o examples/associative_doubles.c
 examples/novalid: conjecture.o examples/novalid.c
 	$(CC) $(CFLAGS) conjecture.o examples/novalid.c -o examples/novalid
 
+examples/unsorted_strings: conjecture.o examples/unsorted_strings.c
+	$(CC) $(CFLAGS) conjecture.o examples/unsorted_strings.c -o examples/unsorted_strings
+
+
 
 .PHONY: clean reformat

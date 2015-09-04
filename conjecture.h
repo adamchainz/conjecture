@@ -159,6 +159,14 @@ bool conjecture_draw_bool(conjecture_context *context);
 uint8_t conjecture_draw_uint8(conjecture_context *context);
 
 /*
+  Returns a zero terminated char*. This will always be non-NULL.
+  The caller is responsible for passing it to free.
+
+  Consumes >= 1 byte.
+*/
+char *conjecture_draw_string(conjecture_context *context);
+
+/*
   Draw a single uint64_t
 
   Consumes 8 bytes
