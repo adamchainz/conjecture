@@ -10,9 +10,8 @@ helper functions to help you generate the sort of data you want), you print some
 is your program actually did, and then as if by magic all the right random choices are taken to produce as
 simple an example as possible.
 
--------------------
 How does that work?
--------------------
+~~~~~~~~~~~~~~~~~~~
 
 There is of course no magic. Conjecture runs your test multiple times, suppressing output in all but the last
 run, and then once it has found the simplest possible way it can of making your test fail it runs it one final
@@ -63,9 +62,8 @@ how it will get simplified under you, but the worst case scenario of not paying 
 examples wont be as simplified as they could be.
 
 
-------------------------
 Why is this a good idea?
-------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 It's in many ways the natural evolution of the concepts that come out of property based testing and Quickcheck.
 
@@ -143,9 +141,8 @@ a feature that is hard to do correctly and so most people don't bother. As a res
 Quickcheck ports, and making a version that you can simply bind to instead of writing your own seems like a
 worthwhile endeavour.
 
--------------
 Does it work?
--------------
+~~~~~~~~~~~~~
 
 Initial experiments say "Yes, definitely".
 
@@ -206,9 +203,8 @@ think that it's already demonstrated that it produces simplification that is goo
 more than made up for by its benefits, and I actually think it's possible that Conjecture's approach will prove
 better over all because it's more able to escape local minima.
 
-----------------
 How do I use it?
-----------------
+~~~~~~~~~~~~~~~~
 
 Right now Conjecture is implemented as a C library (bindings are totally possible and will be coming) and you
 can check out `some usage examples in the git repo <https://github.com/DRMacIver/conjecture/tree/master/examples>`_.
@@ -216,7 +212,7 @@ can check out `some usage examples in the git repo <https://github.com/DRMacIver
 This section is more intended to be a high level description of how to write tests and generators with it.
 
 Writing tests
-~~~~~~~~~~~~~~
+--------------
 
 Writing tests is easy: You write a function that takes a conjecture_context and some optional payload data,
 you call some data generation functions (either your own or Conjecture provided ones) using that context, you
@@ -224,7 +220,7 @@ print some output to give you the information you want out of your test (e.g. wh
 you let conjecture run it.
 
 Writing data generators
-~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------
 
 Writing data generators is relatively easy but requires a little bit of care if you want to get good examples
 with simplification.
@@ -235,7 +231,7 @@ results. Everything else should work out for you.
 However there are some useful principles to bear in mind that will cause things to work out *better* for you.
 
 Simpler inputs lead to simpler outputs
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--------------------------------------
 
 
 Here is the code the current prototype uses to generate an unsigned 64 bit integer:
@@ -262,7 +258,7 @@ reduces the integer more than reducing a low byte. If we'd instead read the inte
 then 256 would be simpler than 1 because the byte at which they differ comes later.
 
 Simplifying earlier generators may change later generators
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+----------------------------------------------------------
 
 There's something that is both a feature and a bug about simplifying the underlying data stream: It creates
 unintentional dependencies between data.
@@ -319,7 +315,7 @@ to only consuming a fixed number (8) of bytes. From that point on, simplificatio
 and won't change subsequent calls.
 
 Try to make calls deletable
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+----------------------------
 
 Often generators which call variable numbers of other generators will do so in some predictable pattern. e.g.
 through a repeated call to some other generator.
@@ -357,7 +353,7 @@ is tried first this will usually stabilize pretty reasonably.
 
 
 Details of the C implementation
--------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These will almost certainly change massively as the code evolves and I start trying to support platforms that
 aren't my development laptop, but here's how it currently works:
@@ -381,10 +377,10 @@ failing test case in the controlling process. This *should* crash the process. I
 the test being flaky and crash the process anyway.
 
 Frequently Asked/Anticipated Questions
---------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Why abort the test when you read past the end of the buffer?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------------------------------------------
 
 In principle you could just generate more random data when you reach the end. Why not do that?
 
@@ -406,7 +402,7 @@ There are two major reasons to do this:
    wasting time trying to find out whether or not it's a failing example.
 
 Will this work with simplifying complex data?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------------------------
 
 It should do! The approach of simplifying inputs to builder functions has been pretty thoroughly proven, and
 I've got working implementations of all the core primitives and combinators that you need.
@@ -423,12 +419,12 @@ it actually performs. I'm pretty sure this is fixable though - it's currently la
 I figured out for how to do efficient simplification in Hypothesis. It's not even deduplicating examples.
 
 How has nobody thought of this before?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--------------------------------------
 
 I honestly have no idea.
 
 References
-----------
+~~~~~~~~~~
 
 * Property based testing in its modern incarnations almost all are derived from
   `Quickcheck <https://hackage.haskell.org/package/QuickCheck>`_.
