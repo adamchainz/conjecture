@@ -379,6 +379,25 @@ the test being flaky and crash the process anyway.
 Frequently Asked/Anticipated Questions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+How is this different from Quickcheck style testing?
+----------------------------------------------------
+
+For starters it has most of the benefits that Hypothesis does over classic Quickcheck. In particular it is
+possible to serialize arbitrary examples after minimization, it works transparently with tests that try to
+perform side effects or mutate the values you've passed in, and you can chain data generation together while
+retaining simplification.
+
+Its two main advantages over Hypothesis from a usage point of view are:
+
+1. You can mix test execution and data generation freely. For example, if you perform a calculation in your
+   test which returns a list of values and then pick an arbitrary value from that list, that's a random choice
+   subject to simplification like any other (it will simplify towards having picked the first element of the
+   list). In Hypothesis or Quickcheck there's quite a distinct separation between test execution and example
+   generation. Hypothesis blurs this a bit, but at the cost of a very complicated implementation for doing so.
+2. It is much easier to define your own data generation, because you don't have to define simplification rules
+   at all.
+
+
 Why abort the test when you read past the end of the buffer?
 ------------------------------------------------------------
 
