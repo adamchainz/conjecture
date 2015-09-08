@@ -426,16 +426,10 @@ Will this work with simplifying complex data?
 It should do! The approach of simplifying inputs to builder functions has been pretty thoroughly proven, and
 I've got working implementations of all the core primitives and combinators that you need.
 
-So far I've not been able to find any examples where Conjecture is significantly worse at simplifying than
-Hypothesis is. This *is* biased towards examples that are not completely painful to write in C, and it's not
-as thoroughly tested as all that, but it's still pretty impressive given that Conjecture's simplification is
-a really bad implementation I wrote in about an hour, while Hypothesis has had some pretty intense tuning
-and probably has the most advanced simplification of any open source Quickcheck implementation.
-
-One major question is whether the simplification will work well and *fast* for complex data. Currently
-Conjecture's simplification is very inefficient and runs the test far too many times for the number of shrinks
-it actually performs. I'm pretty sure this is fixable though - it's currently lacking most of the major features
-I figured out for how to do efficient simplification in Hypothesis. It's not even deduplicating examples.
+This is going to take a lot of work on the core buffer simplification algorithm. It originally looked much
+easier than it was because I was mostly focused on small examples. On large examples it still works, but it's
+non-trivial to get a good balance between high quality end results and speed. This is decidedly a work in
+progress.
 
 How has nobody thought of this before?
 --------------------------------------
