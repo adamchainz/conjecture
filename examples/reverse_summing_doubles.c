@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <inttypes.h>
 #include <math.h>
+#include <stdio.h>
 
 #include "conjecture.h"
 

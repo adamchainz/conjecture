@@ -50,7 +50,7 @@ typedef struct {
 } knapsack_problem;
 
 void print_knapsack(knapsack_problem *problem) {
-  printf("Knapsack. Capacity %" PRIu64 ". %zu candidates: ", problem->n_items,
+  printf("Knapsack. Capacity %zu. %" PRIu64 " candidates: ", problem->n_items,
          problem->capacity);
   for(size_t i = 0; i < problem->n_items; i++) {
     printf("(weight=%" PRIu64 ", value=%" PRIu64 ") ", problem->items[i].weight,
