@@ -2,6 +2,11 @@
 What is Conjecture?
 ===================
 
+Note: This document is currently ahead of the state of the art in Conjecture itself and is based on some
+prototyping I've been doing in a private fork of `Hypothesis <http://hypothesis.readthedocs.org/en/latest/>`_.
+The current Conjecture implementation is proof that these ideas work in C, but proof that they can be made to
+work *well* is not yet public.
+
 The core concept of Conjecture is this: What if you could do the most basic sort of randomized testing which
 everybody starts out with, only instead of it being awful it was actually amazing?
 
@@ -61,6 +66,24 @@ The abstraction is a *bit* leaky in that it is helpful to think in terms of the 
 how it will get simplified under you, but the worst case scenario of not paying attention to this is that your
 examples wont be as simplified as they could be.
 
+Introspection
+-------------
+
+The major problem simplification in Conjecture suffers from is that examples are typically large and will stay
+large - a minimal example will typically still be a large buffer, because you need that much buffer to satisfy
+the data requirements of the test. The sort of simplification passes you need to do this without understanding
+the structure of the data are typically O(n^2), and the size of the underlying buffers for interesting examples
+typically has large enough n that this is not viable.
+
+We solve this problem by offering an API to let users mark boundaries in the data stream which correspond to
+examples. This consists of a pair of functions conjecture_start_example() and conjecture_end_example(). It is
+expected that these will be heavily nested.
+
+These then get turned into intervals, which use to heavily direct the search for simpler examples.
+The result is that you have much closer to O(n) intervals, and the boundaries correspond very well to places
+that is useful to focus on. This makes the simplification process significantly more tractable.
+
+More on how this works later.
 
 Why is this a good idea?
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -144,12 +167,14 @@ worthwhile endeavour.
 Does it work?
 ~~~~~~~~~~~~~
 
-Initial experiments say "Yes, definitely".
+Initial experiments say "Yes, definitely". All the moving parts haven't been demonstrated working together yet,
+but I have prototypes of everything that classic Quickcheck does and think I know how to achieve all the things
+that Hypothesis does that Quickcheck doesn't.
 
 The simplifier requires some reasonably careful tuning and to implement some simplifications that you probably
 wouldn't bother with in a general binary simplifier: For example, if you have an adjacent pair like (1, 0) you
 *do* want to try simplifying to to (0, 1), because that might be the middle of an integer and you need to be
-able to shrink it.
+able to shrink it. Again, more on this later.
 
 Generators can be a little tricky to write if you want good example output, however experience so far is that
 they're still easier to write than for Hypothesis because you don't have to worry so much about simplification.
@@ -202,6 +227,150 @@ It is possible that Conjecture will turn out to provide less effective simplific
 think that it's already demonstrated that it produces simplification that is good enough that any shortfall is
 more than made up for by its benefits, and I actually think it's possible that Conjecture's approach will prove
 better over all because it's more able to escape local minima.
+
+Design of the simplifier
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Note: This simplifier currently only exists in a separate Python prototype, and is very much a work in progress
+which is liable to change. It is pretty good, but still needs further development.
+
+Further note: A lot of the specific details of this are a bit ad hoc and are chosen simply to make a class of
+examples work well. The general theme is likely to remain, but specific details and magic numbers will almost
+certainly change.
+
+The goal of the simplifier is to do a length and then lexicographic minimization over buffers which produce a
+test failure. It isn't completely blind - it looks at the structure of the examples being read as hinted at by
+the API and uses this to guide the search.
+
+The simplifier always maintains a "current best" buffer. We only ever consider buffers that are simpler than it,
+so whenever we find a new example that falsifies the test we always replace the current buffer. When we do this,
+we also automatically trim the buffer to contain only the initial prefix of it that was actually read: Because
+there is no way to inspect what's coming next this is always valid. This allows many simplifications which
+ostensibly have nothing to do with the size of the buffer to shrink it anyway, and helps escape a number of
+cases where we could potentially accidentally make the example more complicated again because we didn't notice
+a shrink in time.
+
+For our current buffer, we also have a deduplicated list of intervals stored as half-open [start, end). These
+are sorted from most complex to least complex, where one interval is more complex than another if it is longer 
+or if they are the same length but the corresponding bytes in the buffer sort lexicographically after it (i.e.
+the same order we consider buffers in).
+
+Simplification proceeds in two passes:
+
+The first pass is responsible for just deleting as much data as it feasibly can, getting the buffer small enough
+that we can perform more intensive simplifications.
+
+This works by greedily deleting intervals, starting from the most complex and proceeding to the least. We skip
+all intervals that are really small because experience suggests that there are a lot of small intervals and
+they're not worth the cost of trying to delete.
+
+A detail: Rather than proceeding from the most to the least complex every time, we actually maintain an index
+and always shrink the i'th most complicated interval, incrementing i each time. When we hit the end of the
+list of intervals, if we've made any changes since the start we begin again from the beginning, else we stop.
+
+The reason for this is that starting from the beginning each time means that we will be repeatedly trying the
+same deletions over and over again, which will usually not work. Doing it this way means that we will be less
+likely to try useless deletions but will still have the property that the final result is a local minimum for
+this operation.
+
+The following is more or less the the current Python prototype of this:
+
+
+.. code-block:: python
+
+    def delete_intervals(self):
+        changed = True
+        while changed:
+            changed = False
+            i = 0
+            while i < len(self.intervals):
+                it = self.intervals[i]
+                if it[1] <= it[0] + 8:
+                    break
+                buf = self.current_best
+                changed |= check(buf[:it[0]] + buf[it[1]:])
+                i += 1
+
+The method self.check returns whether the buffer it is passed falsifies the test and if it does updates the
+current buffer and its corresponding intervals.
+
+Once this is done (which typically results in very large buffer reductions - in my test cases I was often seeing
+an order of magnitude or more) we proceed to try to simplify values.
+
+We do this by considering each interval in turn, using the same iteration strategy as above but proceeding
+instead from *least* complicated to most complicated.
+
+When simplifying an interval we first try to delete it. This usually doesn't work, but it works just often
+enough to be worth trying and saving us the later work. If that does succeed we stop there.
+
+Otherwise we then try to replace it with a lexicographically minimal sequence of bytes of the same length. We
+do this by iterating the following operations to a fixed point:
+
+1. Try 'capping' the buffer in the interval, by replacing each byte with min(c, b) for some c < 256.
+2. For each byte, starting from left to right, try replacing it with a strictly smaller byte. A linear probe up
+   to the value of the byte works pretty well here, though a more complicated solution seems to work slightly
+   better while still retaining most of the benefits.
+3. Try replacing the sequence with a lexicographically earlier sequence chosen uniformly at random. Try this
+   up to 5 times until one of them succeeds.
+4. If the random probes didnt work, try replacing the buffer with its immediate lexicographic predecessor (this
+   is the same as subtracting one from it interpreted as an unsigned n-byte big-endian integer).
+
+Note that we only run each of 2 and 3 *once* before circling back to the beginning. This is important, because
+neither of them are very aggressive simplifications and will frequently significantly increase a byte in a later
+element of the sequence. This then opens up the possibility of further simplification to occur in 1 which *is*
+a much more aggressive simplifier.
+
+The choice of smaller bytes we use is:
+
+.. code-block:: python
+
+    def up_to(n):
+        if n <= 0:
+            return
+        if n <= 1:
+            yield 0
+            return
+        possibilities = {0, 1}
+        for i in hrange(8):
+            k = 2 ** i
+            if k > n:
+                break
+            possibilities.add(n & ~k)
+            possibilities.add(n >> i)
+        possibilities.add(n - 1)
+        possibilities.discard(n)
+        for k in sorted(possibilities):
+            assert k < n
+            yield k
+
+This seems to give a good selection of smaller numbers while bounding the number of bytes we try (it gives < 20
+numbers while a linear probe might give up to 255).
+
+We also use this for the cap by trying caps which are up_to(maximum).
+
+Once we have the buffer minimized according to these (even if this resulted in no changes) we try *cloning* it.
+
+The way this works is that we find all intervals which are more complicated than the current interval and try
+replacing the sequence there with the sequence at the current interval.
+
+Note: It is very rare that it works to try to replace a strictly longer interval, but it works just often enough
+and provides a substantial enough benefit when it does that it's not worth limiting the size of the target.
+
+We do this in much the same way as the above, always using the current sequence of intervals and looking at the
+i'th one, looping around to the beginning if we successfully changed anything.
+
+Note that it doesn't matter if the current intervals overlap with this one. In particular it's entirely possible
+to replace an interval that contains the current one.
+
+The reason for the cloning operation is twofold:
+
+1. It gives access to optimisations that might be much harder to reach.
+2. It saves a lot of work. Rather than running essentially duplicate shrinking operations, by repeatedly cloning
+   an interval once it has been shrunk we don't need to spend so much time shrinking the interval it replaces
+   when we get to it.
+
+Additional work is definitely needed on this, but for most examples I've tried the algorithm described produces
+results that are comparably good to Hypothesis.
 
 How do I use it?
 ~~~~~~~~~~~~~~~~
@@ -423,18 +592,45 @@ There are two major reasons to do this:
 Will this work with simplifying complex data?
 ---------------------------------------------
 
-It should do! The approach of simplifying inputs to builder functions has been pretty thoroughly proven, and
-I've got working implementations of all the core primitives and combinators that you need.
+Yes.
 
-This is going to take a lot of work on the core buffer simplification algorithm. It originally looked much
-easier than it was because I was mostly focused on small examples. On large examples it still works, but it's
-non-trivial to get a good balance between high quality end results and speed. This is decidedly a work in
-progress.
+I have a prototype based on these concepts which passes most of alightly modified version of Hypothesis's example
+shrinking. It takes 2 or 3 times as long in some of these tests, but this is competing against a heavily optimised
+implementation which frequently takes a tenth of the time of Haskell Quickcheck.
+
+What are the downsides?
+-----------------------
+
+Other than the fact that it is currently very immature and thus still a work in progress, there aren't that many.
+
+The limitations I suspect are intrinsic are:
+
+1. The relation between data generation and shrinking can be a little opaque, and it's not always obvious where
+   you should put example markers in order to get good results.
+2. The API is pretty intrinsically imperative. In much the same way that Quickcheck doesn't adapt well to
+   imperative languages, I don't think this will adapt well to functional ones. There's a reasonably natural
+   monadic interface so it shouldn't be *too* bad, but it's probably going to feel a bit alien.
+
+Current limitations that I think I know how to solve:
+
+1. Right now I'm not completely clear on how to get great quality examples out of it - the distribution is a bit
+   too 'flat' and lacks an equivalent to `Hypothesis's parametrization <http://hypothesis.readthedocs.org/en/latest/internals.html#parametrization>`_.
+   It should be possible to fix this by making generation of the byte stream itself smarter, e.g. by generating an
+   example which passes the assumptions of the test and then trying a sequence of mutations on it.
+2. assume() in conjecture is not adaptive like in Hypothesis. It just aborts the whole test. I think I can
+   actually make assume smarter than in Hypothesis by selective editing of the data stream, but it's hard to
+   say for sure.
+   
+But both of these are "merely Quickcheck level good" which is a nice problem to have.
 
 How has nobody thought of this before?
 --------------------------------------
 
 I honestly have no idea.
+
+I can point to a number of innovations in Hypothesis that I needed to make in order for it to be obvious to me
+that this would work, and anecdotally talking to people it's not a priori obvious to them that the approach
+described here is at all possible, but it seems too simple an idea to have been overlooked.
 
 References
 ~~~~~~~~~~
