@@ -194,16 +194,6 @@ uint64_t conjecture_draw_uint64_under(conjecture_context *context,
 int64_t conjecture_draw_int64(conjecture_context *context);
 
 /*
-  Draw an int64_t, x, such that lower <= x <= upper.
-
-  If lower == upper consumes no bytes, else consumes >= 8 bytes
-
-  Fails if lower > upper.
-*/
-int64_t conjecture_draw_int64_in_range(conjecture_context *context,
-                                       int64_t lower, int64_t upper);
-
-/*
   Draw a double in the closed interval [0, 1].
 
   Consumes >= 9 bytes
