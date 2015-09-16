@@ -16,7 +16,7 @@ test is flaky.
 */
 
 void test_i_am_calling_process(conjecture_context *context, void *data) {
-  pid_t *mypid = (pid_t*)data;
+  pid_t *mypid = (pid_t *)data;
   assert(getpid() == *mypid);
 }
 

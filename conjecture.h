@@ -61,7 +61,7 @@ typedef struct {
   size_t current_index;
 } conjecture_context;
 
-typedef int64_t (*forker)(void*);
+typedef int64_t (*forker)(void *);
 
 typedef struct {
   // Once this many examples have been tried and not rejected, conjecture will
@@ -90,6 +90,12 @@ typedef void (*conjecture_test_case)(conjecture_context *context, void *data);
 void conjecture_run_test(conjecture_runner *runner,
                          conjecture_test_case test_case, void *data);
 
+conjecture_buffer *
+conjecture_run_test_for_buffer(conjecture_runner *runner,
+                               conjecture_test_case test_case, void *data);
+
+void conjecture_buffer_del(conjecture_buffer *b);
+
 /*
   Initializes a runner with default settings and sets up the relevant
   communication channels.
@@ -100,6 +106,9 @@ void conjecture_runner_init(conjecture_runner *runner);
   Releases any resources associated with a runner.
 */
 void conjecture_runner_release(conjecture_runner *runner);
+
+void conjecture_context_init_from_buffer(conjecture_context *context,
+                                         conjecture_buffer *buffer);
 
 /*
 

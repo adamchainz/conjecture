@@ -47,7 +47,7 @@ static conjecture_buffer *conjecture_buffer_new(size_t capacity) {
   return buffer;
 }
 
-static void conjecture_buffer_del(conjecture_buffer *b) {
+void conjecture_buffer_del(conjecture_buffer *b) {
   free(b->data);
   free(b);
 }
@@ -55,9 +55,13 @@ static void conjecture_buffer_del(conjecture_buffer *b) {
 void conjecture_fail(conjecture_context *context) { exit(CONJECTURE_EXIT); }
 
 void conjecture_reject(conjecture_context *context) {
-  context->comms->rejected = true;
-  msync(context->comms, sizeof(conjecture_comms), 0);
-  exit(EXIT_SUCCESS);
+  if(context->comms != NULL) {
+    context->comms->rejected = true;
+    msync(context->comms, sizeof(conjecture_comms), 0);
+    exit(EXIT_SUCCESS);
+  } else {
+    fprintf(stderr, "Rejected example when not running in subprocess\n");
+  }
 }
 
 void conjecture_assume(conjecture_context *context, bool condition) {
@@ -214,7 +218,8 @@ static bool is_failing_test_case(conjecture_runner *runner,
                                  conjecture_buffer *buffer,
                                  conjecture_test_case test_case, void *data) {
   conjecture_comms *comms = runner->comms;
-  comms->rejected = false;
+  if(comms != NULL)
+    comms->rejected = false;
   pid_t pid = (pid_t)runner->fork(runner->fork_data);
   if(pid == -1) {
     fprintf(stderr, "Unable to fork child process\n");
@@ -236,9 +241,7 @@ static bool is_failing_test_case(conjecture_runner *runner,
   }
 }
 
-int64_t standard_forker(void *ignored){
-    return (int64_t)fork();
-}
+int64_t standard_forker(void *ignored) { return (int64_t)fork(); }
 
 void conjecture_runner_init(conjecture_runner *runner) {
   runner->max_examples = 200;
@@ -371,8 +374,16 @@ static void print_buffer(conjecture_buffer *buffer) {
   printf("]:%zu", buffer->fill);
 }
 
-void conjecture_run_test(conjecture_runner *runner,
-                         conjecture_test_case test_case, void *data) {
+void conjecture_context_init_from_buffer(conjecture_context *context,
+                                         conjecture_buffer *buffer) {
+  context->comms = NULL;
+  context->buffer = buffer;
+  context->current_index = 0;
+}
+
+conjecture_buffer *
+conjecture_run_test_for_buffer(conjecture_runner *runner,
+                               conjecture_test_case test_case, void *data) {
   conjecture_buffer *primary = conjecture_buffer_new(runner->max_buffer_size);
 
   size_t fill = 64;
@@ -435,18 +446,12 @@ void conjecture_run_test(conjecture_runner *runner,
         }
       }
     }
+    conjecture_buffer_del(secondary);
     printf("Shrank example %d times in %d extra tries\n", shrinks, extra_tries);
     printf("Final buffer: ");
     print_buffer(primary);
     printf("\n");
-
-    conjecture_context context;
-    context.comms = runner->comms;
-    context.buffer = primary;
-    context.current_index = 0;
-    test_case(&context, data);
-    printf("Flaky test! That was supposed to crash but it didn't.\n");
-    exit(EXIT_FAILURE);
+    return primary;
   } else {
     printf("No failing test case after %d examples (%d accepted)\n",
            total_examples, good_examples);
@@ -455,6 +460,20 @@ void conjecture_run_test(conjecture_runner *runner,
       printf("Failing test due to too few valid examples.\n");
       exit(EXIT_FAILURE);
     }
+    return NULL;
+  }
+}
+
+void conjecture_run_test(conjecture_runner *runner,
+                         conjecture_test_case test_case, void *data) {
+  conjecture_buffer *primary =
+      conjecture_run_test_for_buffer(runner, test_case, data);
+  if(primary != NULL) {
+    conjecture_context context;
+    conjecture_context_init_from_buffer(&context, primary);
+    test_case(&context, data);
+    printf("Flaky test! That was supposed to crash but it didn't.\n");
+    exit(EXIT_FAILURE);
   }
 }
 

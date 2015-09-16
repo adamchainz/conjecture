@@ -35,7 +35,16 @@ class TestRunner(object):
             except BaseException:
                 traceback.print_exc()
                 os._exit(1)
-        raw.lib.conjecture_run_test(self.runner, runtest, raw.ffi.NULL)
+        buf = raw.lib.conjecture_run_test_for_buffer(
+            self.runner, runtest, raw.ffi.NULL
+        )
+        if buf != raw.ffi.NULL:
+            try:
+                context = raw.ffi.new('conjecture_context*')
+                raw.lib.conjecture_context_init_from_buffer(context, buf)
+                test(context, *args, **kwargs)
+            finally:
+                raw.lib.conjecture_buffer_del(buf)
         
 
 
