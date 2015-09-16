@@ -51,9 +51,8 @@ double conjecture_draw_double(conjecture_context *context);
 void conjecture_assume(conjecture_context *context, bool requirement);
 """)
 
-C = ffi.dlopen("./conjecture.so")
-
-INITIAL_PID = os.getpid()
+C = ffi.dlopen(os.path.join(
+    os.path.dirname(__file__), "..", "conjecture.so"))
 
 def test(f):
     @ffi.callback(
