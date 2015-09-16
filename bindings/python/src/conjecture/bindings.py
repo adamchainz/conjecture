@@ -52,7 +52,13 @@ PREFIX = 'conjecture_'
 
 def wrap_conjecture_function(name):
     assert name.startswith(PREFIX)
-    globals()[name[len(PREFIX):]] = getattr(raw.lib, name)
+    underlying = getattr(raw.lib, name)
+    def accept(*args):
+        return underlying(*args)
+    clean_name = name[len(PREFIX):]
+    accept.__name__ = clean_name
+    accept.__qualname__ = 'conjecture.bindings.%s' % (clean_name,)
+    globals()[clean_name] = accept
 
 wrap_conjecture_function('conjecture_assume')
 wrap_conjecture_function('conjecture_reject')
@@ -60,6 +66,3 @@ wrap_conjecture_function('conjecture_reject')
 for name in dir(raw.lib):
     if name.startswith('conjecture_draw'):
         wrap_conjecture_function(name)
-    if name.startswith('conjecture_variable_draw'):
-        wrap_conjecture_function(name)
-        
