@@ -210,11 +210,12 @@ double conjecture_draw_double(conjecture_context *context) {
   }
 }
 
-static bool is_failing_test_case(conjecture_comms *comms,
+static bool is_failing_test_case(conjecture_runner *runner,
                                  conjecture_buffer *buffer,
                                  conjecture_test_case test_case, void *data) {
+  conjecture_comms *comms = runner->comms;
   comms->rejected = false;
-  pid_t pid = fork();
+  pid_t pid = (pid_t)runner->fork(runner->fork_data);
   if(pid == -1) {
     fprintf(stderr, "Unable to fork child process\n");
     exit(EXIT_FAILURE);
@@ -235,9 +236,15 @@ static bool is_failing_test_case(conjecture_comms *comms,
   }
 }
 
+int64_t standard_forker(void *ignored){
+    return (int64_t)fork();
+}
+
 void conjecture_runner_init(conjecture_runner *runner) {
   runner->max_examples = 200;
   runner->max_buffer_size = 1024 * 64;
+  runner->fork = standard_forker;
+  runner->fork_data = NULL;
   int shmid = shmget(IPC_PRIVATE, sizeof(conjecture_comms), IPC_CREAT | 0666);
   if(shmid < 0) {
     fprintf(stderr, "Unable to create shared memory segment\n");
@@ -384,7 +391,7 @@ void conjecture_run_test(conjecture_runner *runner,
     good_examples++;
     total_examples++;
     primary->fill = fread(primary->data, 1, fill, urandom);
-    if(is_failing_test_case(runner->comms, primary, test_case, data)) {
+    if(is_failing_test_case(runner, primary, test_case, data)) {
       found_failure = true;
       break;
     }
@@ -414,7 +421,7 @@ void conjecture_run_test(conjecture_runner *runner,
       size_t stage = 0;
       while(shrink_buffer(secondary, primary, stage++)) {
         extra_tries++;
-        if(is_failing_test_case(runner->comms, secondary, test_case, data)) {
+        if(is_failing_test_case(runner, secondary, test_case, data)) {
           conjecture_buffer *tmp = primary;
           primary = secondary;
           secondary = tmp;

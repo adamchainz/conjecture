@@ -20,9 +20,7 @@ If you wish to make use of it under another license, email
 licensing@drmaciver.com to enquire about options.
 */
 
-/*
-
-Conjecture is a new approach to property based testing that blends tests and
+/* Conjecture is a new approach to property based testing that blends tests and
 data generation.
 
 A test function takes a conjecture_context, which contains state needed for
@@ -63,6 +61,8 @@ typedef struct {
   size_t current_index;
 } conjecture_context;
 
+typedef int64_t (*forker)(void*);
+
 typedef struct {
   // Once this many examples have been tried and not rejected, conjecture will
   // declare the test to be passing.
@@ -71,6 +71,8 @@ typedef struct {
   // have a single buffer of at most this many bytes. Any test cases which
   // attempt to read past the end of this buffer will be rejected.
   size_t max_buffer_size;
+  forker fork;
+  void *fork_data;
 
   conjecture_comms *comms;
 } conjecture_runner;
