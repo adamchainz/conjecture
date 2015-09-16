@@ -1,4 +1,4 @@
-CFLAGS?= --std=c99 -I. -D_XOPEN_SOURCE -Wall -pedantic -Werror -pg
+CFLAGS?= --std=c99 -I. -D_XOPEN_SOURCE -Wall -pedantic -Werror -pg -fPIC
 
 clean:
 	rm -rf *.o
@@ -8,6 +8,9 @@ reformat:
 
 conjecture.o: conjecture.c
 	$(CC) -c $(CFLAGS) conjecture.c
+
+conjecture.so: conjecture.o
+	$(CC) conjecture.o --shared -oconjecture.so
 
 examples/summing: conjecture.o examples/summing.c
 	$(CC) $(CFLAGS) conjecture.o examples/summing.c -o examples/summing
