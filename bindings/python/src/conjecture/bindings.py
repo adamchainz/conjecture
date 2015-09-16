@@ -8,12 +8,20 @@ import signal
 def python_friendly_forker(ignored):
     return os.fork()
 
+CONJECTURE_CONFIG_OPTIONS = {
+    'max_examples', 'max_buffer_size', 'suppress_output'
+}
+
 class TestRunner(object):
-    def __init__(self):
+    def __init__(self, **kwargs):
         self.lib = raw.lib
         self.runner = raw.ffi.new('conjecture_runner*')
         self.lib.conjecture_runner_init(self.runner)
         self.runner.fork = python_friendly_forker
+        for k, v in kwargs.items():
+            if k in CONJECTURE_CONFIG_OPTIONS:
+                setattr(self.runner, k, v)            
+            
     def __del__(self):
         self.lib.conjecture_runner_release(self.runner)
 

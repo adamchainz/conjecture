@@ -71,6 +71,7 @@ typedef struct {
   // have a single buffer of at most this many bytes. Any test cases which
   // attempt to read past the end of this buffer will be rejected.
   size_t max_buffer_size;
+  bool suppress_output;
   forker fork;
   void *fork_data;
 

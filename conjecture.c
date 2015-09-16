@@ -68,7 +68,6 @@ void conjecture_assume(conjecture_context *context, bool condition) {
   if(!condition)
     conjecture_reject(context);
 }
-
 void conjecture_draw_bytes(conjecture_context *context, size_t n,
                            unsigned char *destination) {
   if(n + context->current_index > context->buffer->fill) {
@@ -225,9 +224,11 @@ static bool is_failing_test_case(conjecture_runner *runner,
     fprintf(stderr, "Unable to fork child process\n");
     exit(EXIT_FAILURE);
   } else if(pid == 0) {
-    int devnull = open("/dev/null", O_WRONLY);
-    dup2(devnull, STDOUT_FILENO);
-    dup2(devnull, STDERR_FILENO);
+    if(runner->suppress_output) {
+      int devnull = open("/dev/null", O_WRONLY);
+      dup2(devnull, STDOUT_FILENO);
+      dup2(devnull, STDERR_FILENO);
+    }
     conjecture_context context;
     context.comms = comms;
     context.buffer = buffer;
@@ -248,6 +249,7 @@ void conjecture_runner_init(conjecture_runner *runner) {
   runner->max_buffer_size = 1024 * 64;
   runner->fork = standard_forker;
   runner->fork_data = NULL;
+  runner->suppress_output = true;
   int shmid = shmget(IPC_PRIVATE, sizeof(conjecture_comms), IPC_CREAT | 0666);
   if(shmid < 0) {
     fprintf(stderr, "Unable to create shared memory segment\n");
