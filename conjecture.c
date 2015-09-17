@@ -54,7 +54,7 @@ void conjecture_buffer_del(conjecture_buffer *b) {
 
 void conjecture_fail(conjecture_context *context) {
   context->status = CONJECTURE_TEST_FAILED;
-  if(context->runner->abort_on_fail) {
+  if(context->runner->fork != NULL) {
     exit(CONJECTURE_EXIT);
   }
 }
@@ -63,7 +63,7 @@ void conjecture_reject(conjecture_context *context) {
   context->runner->comms->rejected = true;
   msync(context->runner->comms, sizeof(conjecture_comms), 0);
   context->status = CONJECTURE_DATA_REJECTED;
-  if(context->runner->abort_on_fail) {
+  if(context->runner->fork != NULL) {
     exit(EXIT_SUCCESS);
   }
 }
@@ -231,27 +231,32 @@ double conjecture_draw_double(conjecture_context *context) {
 static bool is_failing_test_case(conjecture_runner *runner,
                                  conjecture_buffer *buffer,
                                  conjecture_test_case test_case, void *data) {
-  conjecture_comms *comms = runner->comms;
-  if(comms != NULL)
-    comms->rejected = false;
-  pid_t pid = (pid_t)runner->fork(runner->fork_data);
-  if(pid == -1) {
-    fprintf(stderr, "Unable to fork child process\n");
-    return false;
-  } else if(pid == 0) {
-    if(runner->suppress_output) {
-      int devnull = open("/dev/null", O_WRONLY);
-      dup2(devnull, STDOUT_FILENO);
-      dup2(devnull, STDERR_FILENO);
-    }
+  runner->comms->rejected = false;
+  if(runner->fork == NULL) {
     conjecture_context context;
     conjecture_context_init_from_buffer(&context, runner, buffer);
     test_case(&context, data);
-    exit(0);
+    return context.status == CONJECTURE_TEST_FAILED;
   } else {
-    int status;
-    waitpid(pid, &status, 0);
-    return !WIFEXITED(status) || (WEXITSTATUS(status) != 0);
+    pid_t pid = (pid_t)runner->fork(runner->fork_data);
+    if(pid == -1) {
+      fprintf(stderr, "Unable to fork child process\n");
+      return false;
+    } else if(pid == 0) {
+      if(runner->suppress_output) {
+        int devnull = open("/dev/null", O_WRONLY);
+        dup2(devnull, STDOUT_FILENO);
+        dup2(devnull, STDERR_FILENO);
+      }
+      conjecture_context context;
+      conjecture_context_init_from_buffer(&context, runner, buffer);
+      test_case(&context, data);
+      exit(0);
+    } else {
+      int status;
+      waitpid(pid, &status, 0);
+      return !WIFEXITED(status) || (WEXITSTATUS(status) != 0);
+    }
   }
 }
 
@@ -263,7 +268,6 @@ void conjecture_runner_init(conjecture_runner *runner) {
   runner->fork = standard_forker;
   runner->fork_data = NULL;
   runner->suppress_output = true;
-  runner->abort_on_fail = true;
   int shmid = shmget(IPC_PRIVATE, sizeof(conjecture_comms), IPC_CREAT | 0666);
   if(shmid < 0) {
     fprintf(stderr, "Unable to create shared memory segment\n");

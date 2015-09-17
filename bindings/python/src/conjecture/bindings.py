@@ -25,8 +25,11 @@ class TestRunner(object):
         self.lib = raw.lib
         self.runner = raw.ffi.new('conjecture_runner*')
         self.lib.conjecture_runner_init(self.runner)
-        self.runner.fork = python_friendly_forker
-        self.runner.abort_on_fail = fork
+        self.fork = fork
+        if fork:
+            self.runner.fork = python_friendly_forker
+        else:
+            self.runner.fork = raw.ffi.NULL
         for k, v in kwargs.items():
             if k in CONJECTURE_CONFIG_OPTIONS:
                 setattr(self.runner, k, v)            
@@ -47,13 +50,16 @@ class TestRunner(object):
             except SystemExit as e:
                 os._exit(e.code)
             except ExampleRejected:
-                os._exit(0)
+                pass
             except KeyboardInterrupt:
-                os.kill(parent, signal.SIGINT)
-                os._exit(0)
+                if self.fork:
+                    os.kill(parent, signal.SIGINT)
+                    os._exit(0)
+                else:
+                    raise
             except BaseException:
                 traceback.print_exc()
-                os._exit(1)
+                raw.lib.conjecture_fail(context)
         buf = raw.lib.conjecture_run_test_for_buffer(
             self.runner, runtest, raw.ffi.NULL
         )

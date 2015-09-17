@@ -6,7 +6,7 @@ clean:
 reformat:
 	clang-format -i conjecture.c conjecture.h examples/*.c
 
-conjecture.o: conjecture.c
+conjecture.o: conjecture.c conjecture.h
 	$(CC) -c $(CFLAGS) conjecture.c
 
 conjecture.so: conjecture.o

@@ -75,8 +75,6 @@ typedef struct {
   forker fork;
   void *fork_data;
 
-  bool abort_on_fail;
-
   conjecture_comms *comms;
 } conjecture_runner;
 
@@ -149,6 +147,8 @@ are explicitly documented.
   Consumes no bytes.
 */
 void conjecture_reject(conjecture_context *context);
+
+void conjecture_fail(conjecture_context *context);
 
 /*
   reject the current test if requirement is false.
