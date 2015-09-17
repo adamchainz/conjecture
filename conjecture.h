@@ -47,6 +47,12 @@ can see the intermediate results that your program is printing.
 #include <stdlib.h>
 #include <stdint.h>
 
+typedef enum {
+  CONJECTURE_NO_RESULT,
+  CONJECTURE_DATA_REJECTED,
+  CONJECTURE_TEST_FAILED
+} conjecture_test_status;
+
 typedef struct {
   size_t capacity;
   size_t fill;
@@ -54,12 +60,6 @@ typedef struct {
 } conjecture_buffer;
 
 typedef struct { bool rejected; } conjecture_comms;
-
-typedef struct {
-  conjecture_comms *comms;
-  conjecture_buffer *buffer;
-  size_t current_index;
-} conjecture_context;
 
 typedef int64_t (*forker)(void *);
 
@@ -75,8 +75,19 @@ typedef struct {
   forker fork;
   void *fork_data;
 
+  bool abort_on_fail;
+
   conjecture_comms *comms;
 } conjecture_runner;
+
+typedef struct {
+  conjecture_runner *runner;
+  conjecture_buffer *buffer;
+  conjecture_test_status status;
+  size_t current_index;
+} conjecture_context;
+
+bool conjecture_is_aborted(conjecture_context *context);
 
 typedef void (*conjecture_test_case)(conjecture_context *context, void *data);
 
@@ -109,6 +120,7 @@ void conjecture_runner_init(conjecture_runner *runner);
 void conjecture_runner_release(conjecture_runner *runner);
 
 void conjecture_context_init_from_buffer(conjecture_context *context,
+                                         conjecture_runner *runner,
                                          conjecture_buffer *buffer);
 
 /*

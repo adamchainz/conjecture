@@ -52,15 +52,19 @@ void conjecture_buffer_del(conjecture_buffer *b) {
   free(b);
 }
 
-void conjecture_fail(conjecture_context *context) { exit(CONJECTURE_EXIT); }
+void conjecture_fail(conjecture_context *context) {
+  context->status = CONJECTURE_TEST_FAILED;
+  if(context->runner->abort_on_fail) {
+    exit(CONJECTURE_EXIT);
+  }
+}
 
 void conjecture_reject(conjecture_context *context) {
-  if(context->comms != NULL) {
-    context->comms->rejected = true;
-    msync(context->comms, sizeof(conjecture_comms), 0);
+  context->runner->comms->rejected = true;
+  msync(context->runner->comms, sizeof(conjecture_comms), 0);
+  context->status = CONJECTURE_DATA_REJECTED;
+  if(context->runner->abort_on_fail) {
     exit(EXIT_SUCCESS);
-  } else {
-    fprintf(stderr, "Rejected example when not running in subprocess\n");
   }
 }
 
@@ -68,14 +72,21 @@ void conjecture_assume(conjecture_context *context, bool condition) {
   if(!condition)
     conjecture_reject(context);
 }
+
+bool conjecture_is_aborted(conjecture_context *context) {
+  return context->status != CONJECTURE_NO_RESULT;
+}
+
 void conjecture_draw_bytes(conjecture_context *context, size_t n,
                            unsigned char *destination) {
-  if(n + context->current_index > context->buffer->fill) {
+  if((context->status == CONJECTURE_NO_RESULT) &&
+     (n + context->current_index > context->buffer->fill)) {
     conjecture_reject(context);
+    memset(destination, 0, n);
+  } else {
+    memmove(destination, context->buffer->data + context->current_index, n);
+    context->current_index += n;
   }
-
-  memmove(destination, context->buffer->data + context->current_index, n);
-  context->current_index += n;
 }
 
 uint8_t conjecture_draw_uint8(conjecture_context *context) {
@@ -102,6 +113,8 @@ uint64_t conjecture_draw_uint64(conjecture_context *context) {
 uint64_t conjecture_draw_small_uint64(conjecture_context *context) {
   uint64_t result = 0;
   while(true) {
+    if(conjecture_is_aborted(context))
+      return 0;
     uint8_t datum = conjecture_draw_uint8(context);
     result += (uint64_t)datum;
     if(datum < 0xff)
@@ -110,6 +123,8 @@ uint64_t conjecture_draw_small_uint64(conjecture_context *context) {
 }
 
 char *conjecture_draw_string(conjecture_context *context) {
+  if(conjecture_is_aborted(context))
+    return NULL;
   size_t max_length = (size_t)conjecture_draw_small_uint64(context);
   char *data = malloc(max_length + 1);
   for(size_t i = 0; i < max_length; i++) {
@@ -222,7 +237,7 @@ static bool is_failing_test_case(conjecture_runner *runner,
   pid_t pid = (pid_t)runner->fork(runner->fork_data);
   if(pid == -1) {
     fprintf(stderr, "Unable to fork child process\n");
-    exit(EXIT_FAILURE);
+    return false;
   } else if(pid == 0) {
     if(runner->suppress_output) {
       int devnull = open("/dev/null", O_WRONLY);
@@ -230,9 +245,7 @@ static bool is_failing_test_case(conjecture_runner *runner,
       dup2(devnull, STDERR_FILENO);
     }
     conjecture_context context;
-    context.comms = comms;
-    context.buffer = buffer;
-    context.current_index = 0;
+    conjecture_context_init_from_buffer(&context, runner, buffer);
     test_case(&context, data);
     exit(0);
   } else {
@@ -250,6 +263,7 @@ void conjecture_runner_init(conjecture_runner *runner) {
   runner->fork = standard_forker;
   runner->fork_data = NULL;
   runner->suppress_output = true;
+  runner->abort_on_fail = true;
   int shmid = shmget(IPC_PRIVATE, sizeof(conjecture_comms), IPC_CREAT | 0666);
   if(shmid < 0) {
     fprintf(stderr, "Unable to create shared memory segment\n");
@@ -377,10 +391,12 @@ static void print_buffer(conjecture_buffer *buffer) {
 }
 
 void conjecture_context_init_from_buffer(conjecture_context *context,
+                                         conjecture_runner *runner,
                                          conjecture_buffer *buffer) {
-  context->comms = NULL;
+  context->runner = runner;
   context->buffer = buffer;
   context->current_index = 0;
+  context->status = CONJECTURE_NO_RESULT;
 }
 
 conjecture_buffer *
@@ -472,7 +488,7 @@ void conjecture_run_test(conjecture_runner *runner,
       conjecture_run_test_for_buffer(runner, test_case, data);
   if(primary != NULL) {
     conjecture_context context;
-    conjecture_context_init_from_buffer(&context, primary);
+    conjecture_context_init_from_buffer(&context, runner, primary);
     test_case(&context, data);
     printf("Flaky test! That was supposed to crash but it didn't.\n");
     exit(EXIT_FAILURE);
