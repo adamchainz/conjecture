@@ -273,6 +273,22 @@ static bool is_failing_test_case(conjecture_runner *runner,
   }
 }
 
+static void conjecture_runner_swap_buffers(conjecture_runner *runner) {
+  conjecture_buffer *tmp = runner->primary;
+  runner->primary = runner->secondary;
+  runner->secondary = tmp;
+}
+
+static bool check_and_update(conjecture_runner *runner,
+                             conjecture_test_case test_case, void *data) {
+  if(is_failing_test_case(runner, runner->secondary, test_case, data)) {
+    conjecture_runner_swap_buffers(runner);
+    runner->changed = true;
+    return true;
+  }
+  return false;
+}
+
 int64_t standard_forker(void *ignored) { return (int64_t)fork(); }
 
 void conjecture_runner_init(conjecture_runner *runner) {
@@ -420,12 +436,6 @@ void conjecture_context_init_from_buffer(conjecture_context *context,
   context->status = CONJECTURE_NO_RESULT;
 }
 
-static void conjecture_runner_swap_buffers(conjecture_runner *runner) {
-  conjecture_buffer *tmp = runner->primary;
-  runner->primary = runner->secondary;
-  runner->secondary = tmp;
-}
-
 conjecture_buffer *
 conjecture_run_test_for_buffer(conjecture_runner *runner,
                                conjecture_test_case test_case, void *data) {
@@ -444,8 +454,8 @@ conjecture_run_test_for_buffer(conjecture_runner *runner,
         (total_examples < 5 * runner->max_examples)) {
     good_examples++;
     total_examples++;
-    runner->primary->fill = fread(runner->primary->data, 1, fill, urandom);
-    if(is_failing_test_case(runner, runner->primary, test_case, data)) {
+    runner->secondary->fill = fread(runner->secondary->data, 1, fill, urandom);
+    if(check_and_update(runner, test_case, data)) {
       found_failure = true;
       break;
     }
@@ -465,18 +475,15 @@ conjecture_run_test_for_buffer(conjecture_runner *runner,
     printf("Initial failing buffer: ");
     print_buffer(runner->primary);
     printf("\n");
-    bool changed = true;
     int shrinks = 0;
     int extra_tries = 0;
-    while(changed) {
-      changed = false;
+    runner->changed = true;
+    while(runner->changed) {
+      runner->changed = false;
       size_t stage = 0;
       while(shrink_buffer(runner->secondary, runner->primary, stage++)) {
         extra_tries++;
-        if(is_failing_test_case(runner, runner->secondary, test_case, data)) {
-          conjecture_runner_swap_buffers(runner);
-          changed = true;
-          shrinks++;
+        if(check_and_update(runner, test_case, data)) {
           printf("Shrunk buffer to: ");
           print_buffer(runner->primary);
           printf("\n");

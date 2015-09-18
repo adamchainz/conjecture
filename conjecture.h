@@ -79,6 +79,7 @@ typedef struct {
 
   conjecture_buffer *primary;
   conjecture_buffer *secondary;
+  bool changed;
 } conjecture_runner;
 
 typedef struct {
