@@ -233,9 +233,22 @@ static bool is_failing_test_case(conjecture_runner *runner,
                                  conjecture_test_case test_case, void *data) {
   runner->comms->rejected = false;
   if(runner->fork == NULL) {
+    int oldout, olderr, devnull;
+    fflush(stdout);
+    fflush(stderr);
+    devnull = open("/dev/null", O_WRONLY);
+    oldout = dup(STDOUT_FILENO);
+    olderr = dup(STDERR_FILENO);
+    dup2(devnull, STDOUT_FILENO);
+    dup2(devnull, STDERR_FILENO);
+    close(devnull);
     conjecture_context context;
     conjecture_context_init_from_buffer(&context, runner, buffer);
     test_case(&context, data);
+    dup2(oldout, STDOUT_FILENO);
+    dup2(olderr, STDERR_FILENO);
+    close(oldout);
+    close(olderr);
     return context.status == CONJECTURE_TEST_FAILED;
   } else {
     pid_t pid = (pid_t)runner->fork(runner->fork_data);
