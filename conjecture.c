@@ -293,9 +293,13 @@ void conjecture_runner_init(conjecture_runner *runner) {
   conjecture_comms *comms = (conjecture_comms *)shm;
   comms->rejected = false;
   runner->comms = comms;
+  runner->primary = conjecture_buffer_new(runner->max_buffer_size);
+  runner->secondary = conjecture_buffer_new(runner->max_buffer_size);
 }
 
 void conjecture_runner_release(conjecture_runner *runner) {
+  free(runner->primary);
+  free(runner->secondary);
   shmdt((char *)runner->comms);
 }
 
@@ -416,11 +420,15 @@ void conjecture_context_init_from_buffer(conjecture_context *context,
   context->status = CONJECTURE_NO_RESULT;
 }
 
+static void conjecture_runner_swap_buffers(conjecture_runner *runner) {
+  conjecture_buffer *tmp = runner->primary;
+  runner->primary = runner->secondary;
+  runner->secondary = tmp;
+}
+
 conjecture_buffer *
 conjecture_run_test_for_buffer(conjecture_runner *runner,
                                conjecture_test_case test_case, void *data) {
-  conjecture_buffer *primary = conjecture_buffer_new(runner->max_buffer_size);
-
   size_t fill = 64;
   if(fill > runner->max_buffer_size) {
     fill = runner->max_buffer_size;
@@ -436,8 +444,8 @@ conjecture_run_test_for_buffer(conjecture_runner *runner,
         (total_examples < 5 * runner->max_examples)) {
     good_examples++;
     total_examples++;
-    primary->fill = fread(primary->data, 1, fill, urandom);
-    if(is_failing_test_case(runner, primary, test_case, data)) {
+    runner->primary->fill = fread(runner->primary->data, 1, fill, urandom);
+    if(is_failing_test_case(runner, runner->primary, test_case, data)) {
       found_failure = true;
       break;
     }
@@ -455,42 +463,36 @@ conjecture_run_test_for_buffer(conjecture_runner *runner,
     printf("Found failing test case after %d examples (%d accepted)\n",
            total_examples, good_examples);
     printf("Initial failing buffer: ");
-    print_buffer(primary);
+    print_buffer(runner->primary);
     printf("\n");
-    conjecture_buffer *secondary =
-        conjecture_buffer_new(runner->max_buffer_size);
     bool changed = true;
     int shrinks = 0;
     int extra_tries = 0;
     while(changed) {
       changed = false;
       size_t stage = 0;
-      while(shrink_buffer(secondary, primary, stage++)) {
+      while(shrink_buffer(runner->secondary, runner->primary, stage++)) {
         extra_tries++;
-        if(is_failing_test_case(runner, secondary, test_case, data)) {
-          conjecture_buffer *tmp = primary;
-          primary = secondary;
-          secondary = tmp;
+        if(is_failing_test_case(runner, runner->secondary, test_case, data)) {
+          conjecture_runner_swap_buffers(runner);
           changed = true;
           shrinks++;
           printf("Shrunk buffer to: ");
-          print_buffer(primary);
+          print_buffer(runner->primary);
           printf("\n");
           stage = 0;
           break;
         }
       }
     }
-    conjecture_buffer_del(secondary);
     printf("Shrank example %d times in %d extra tries\n", shrinks, extra_tries);
     printf("Final buffer: ");
-    print_buffer(primary);
+    print_buffer(runner->primary);
     printf("\n");
-    return primary;
+    return runner->primary;
   } else {
     printf("No failing test case after %d examples (%d accepted)\n",
            total_examples, good_examples);
-    conjecture_buffer_del(primary);
     if(good_examples * 10 < total_examples) {
       printf("Failing test due to too few valid examples.\n");
       exit(EXIT_FAILURE);

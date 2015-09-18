@@ -76,6 +76,9 @@ typedef struct {
   void *fork_data;
 
   conjecture_comms *comms;
+
+  conjecture_buffer *primary;
+  conjecture_buffer *secondary;
 } conjecture_runner;
 
 typedef struct {

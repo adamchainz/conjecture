@@ -64,13 +64,10 @@ class TestRunner(object):
             self.runner, runtest, raw.ffi.NULL
         )
         if buf != raw.ffi.NULL:
-            try:
-                context = raw.ffi.new('conjecture_context*')
-                raw.lib.conjecture_context_init_from_buffer(
-                    context, self.runner, buf)
-                test(TestContext(self, context), *args, **kwargs)
-            finally:
-                raw.lib.conjecture_buffer_del(buf)
+            context = raw.ffi.new('conjecture_context*')
+            raw.lib.conjecture_context_init_from_buffer(
+                context, self.runner, buf)
+            test(TestContext(self, context), *args, **kwargs)
         
 
 class TestContext(object):
