@@ -80,6 +80,11 @@ typedef struct {
   conjecture_buffer *primary;
   conjecture_buffer *secondary;
   bool changed;
+  bool found_failure;
+
+  size_t shrinks;
+  size_t calls;
+  size_t accepted;
 } conjecture_runner;
 
 typedef struct {

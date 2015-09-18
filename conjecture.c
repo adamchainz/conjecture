@@ -215,6 +215,8 @@ static double nasty_doubles[16] = {
 double conjecture_draw_double(conjecture_context *context) {
   // Start from the other end so that shrinking puts us out of the nasty zone
   uint8_t branch = 255 - conjecture_draw_uint8(context);
+  int64_t integral_part = conjecture_draw_int64(context);
+  double fractional_part = conjecture_draw_fractional_double(context);
   if(branch < 32) {
     double base = nasty_doubles[branch & 15];
     if(branch & 16) {
@@ -222,8 +224,6 @@ double conjecture_draw_double(conjecture_context *context) {
     }
     return base;
   } else {
-    int64_t integral_part = conjecture_draw_int64(context);
-    double fractional_part = conjecture_draw_fractional_double(context);
     return (double)integral_part + fractional_part;
   }
 }
@@ -279,12 +279,50 @@ static void conjecture_runner_swap_buffers(conjecture_runner *runner) {
   runner->secondary = tmp;
 }
 
+static void buffer_copy(conjecture_buffer *destination,
+                        conjecture_buffer *source) {
+  assert(destination->capacity == source->capacity);
+  destination->fill = source->fill;
+  memmove(destination->data, source->data, source->fill);
+}
+
+static void conjecture_runner_mirror_buffers(conjecture_runner *runner) {
+  buffer_copy(runner->secondary, runner->primary);
+}
+
+static void print_buffer(conjecture_buffer *buffer) {
+  printf("[");
+  for(size_t i = 0; i < buffer->fill; i++) {
+    if(i > 0)
+      printf("|");
+    printf("%hhx", buffer->data[i]);
+  }
+  printf("]:%zu", buffer->fill);
+}
+
 static bool check_and_update(conjecture_runner *runner,
                              conjecture_test_case test_case, void *data) {
+  if(runner->found_failure) {
+    if(runner->secondary->fill > runner->primary->fill)
+      return false;
+    if((runner->secondary->fill == runner->primary->fill) &&
+       (memcmp(runner->secondary->data, runner->primary->data,
+               runner->primary->fill) >= 0))
+      return false;
+  }
+  runner->calls++;
+  runner->accepted++;
   if(is_failing_test_case(runner, runner->secondary, test_case, data)) {
+    runner->shrinks++;
     conjecture_runner_swap_buffers(runner);
     runner->changed = true;
+    printf("Shrank failing buffer: ");
+    print_buffer(runner->primary);
+    printf("\n");
     return true;
+  } else {
+    if(runner->comms->rejected)
+      runner->accepted--;
   }
   return false;
 }
@@ -319,13 +357,7 @@ void conjecture_runner_release(conjecture_runner *runner) {
   shmdt((char *)runner->comms);
 }
 
-static void buffer_copy(conjecture_buffer *destination,
-                        conjecture_buffer *source) {
-  assert(destination->capacity == source->capacity);
-  destination->fill = source->fill;
-  memmove(destination->data, source->data, source->fill);
-}
-
+/*
 static void buffer_delete_range(conjecture_buffer *buffer, size_t start,
                                 size_t end) {
   assert(end >= start);
@@ -337,95 +369,7 @@ static void buffer_delete_range(conjecture_buffer *buffer, size_t start,
   memmove(buffer->data + start, buffer->data + end, gap);
   buffer->fill -= gap;
 }
-
-static bool shrink_buffer(conjecture_buffer *destination,
-                          conjecture_buffer *source, uint64_t stage) {
-  buffer_copy(destination, source);
-  for(size_t i = 0; i + 1 < source->fill; i++) {
-    if(stage == 0) {
-      destination->fill = i;
-      return true;
-    }
-    stage--;
-  }
-
-  for(size_t i = 0; i < source->fill; i++) {
-    for(size_t j = source->fill; j > i; j--) {
-      if(stage == 0) {
-        buffer_delete_range(destination, i, j);
-        return true;
-      }
-      stage--;
-    }
-  }
-  for(size_t i = 0; i < source->fill; i++) {
-    for(size_t j = source->fill; j > i; j--) {
-      if(stage == 0) {
-        bool any_non_zero = false;
-        for(size_t k = i; k < j; k++) {
-          if(destination->data[k] > 0) {
-            any_non_zero = true;
-            destination->data[k] = 0;
-          }
-        }
-        if(any_non_zero) {
-          return true;
-        } else {
-          stage++;
-        }
-      }
-      stage--;
-    }
-  }
-  for(size_t i = 0; i < source->fill; i++) {
-    for(unsigned char c = 0; c < source->data[i]; c++) {
-      if(stage == 0) {
-        destination->data[i] = c;
-        return true;
-      }
-      stage--;
-    }
-  }
-  for(size_t i = 0; i + 1 < source->fill; i++) {
-    if(destination->data[i] > destination->data[i + 1]) {
-      if(stage == 0) {
-        unsigned char c = destination->data[i];
-        destination->data[i] = destination->data[i + 1];
-        destination->data[i + 1] = c;
-        return true;
-      }
-      stage--;
-    }
-  }
-  for(size_t i = 0; i + 1 < source->fill; i++) {
-    if((destination->data[i] > 0) && (destination->data[i + 1] < 0xff)) {
-      if(stage == 0) {
-        destination->data[i] -= 1;
-        destination->data[i + 1] += 1;
-        return true;
-      }
-      stage--;
-      if(stage == 0) {
-        destination->data[i] -= 1;
-        destination->data[i + 1] = 0xff;
-        return true;
-      }
-      stage--;
-    }
-  }
-
-  return false;
-}
-
-static void print_buffer(conjecture_buffer *buffer) {
-  printf("[");
-  for(size_t i = 0; i < buffer->fill; i++) {
-    if(i > 0)
-      printf("|");
-    printf("%hhx", buffer->data[i]);
-  }
-  printf("]:%zu", buffer->fill);
-}
+*/
 
 void conjecture_context_init_from_buffer(conjecture_context *context,
                                          conjecture_runner *runner,
@@ -443,20 +387,17 @@ conjecture_run_test_for_buffer(conjecture_runner *runner,
   if(fill > runner->max_buffer_size) {
     fill = runner->max_buffer_size;
   }
-  int good_examples = 0;
-  int total_examples = 0;
-
-  bool found_failure = false;
-
   FILE *urandom = fopen("/dev/urandom", "r");
+  runner->found_failure = false;
+  runner->accepted = 0;
+  runner->calls = 0;
+  runner->shrinks = 0;
 
-  while((good_examples < runner->max_examples) &&
-        (total_examples < 5 * runner->max_examples)) {
-    good_examples++;
-    total_examples++;
+  while((runner->accepted < runner->max_examples) &&
+        (runner->calls < 5 * runner->max_examples)) {
     runner->secondary->fill = fread(runner->secondary->data, 1, fill, urandom);
     if(check_and_update(runner, test_case, data)) {
-      found_failure = true;
+      runner->found_failure = true;
       break;
     }
     if(runner->comms->rejected) {
@@ -464,43 +405,67 @@ conjecture_run_test_for_buffer(conjecture_runner *runner,
       if(fill > runner->max_buffer_size) {
         fill = runner->max_buffer_size;
       }
-      good_examples--;
     }
   }
   fclose(urandom);
 
-  if(found_failure) {
-    printf("Found failing test case after %d examples (%d accepted)\n",
-           total_examples, good_examples);
+  if(runner->found_failure) {
+    size_t initial_calls = runner->calls;
+
+    printf("Found failing test case after %zu examples (%zu accepted)\n",
+           runner->calls, runner->accepted);
     printf("Initial failing buffer: ");
     print_buffer(runner->primary);
     printf("\n");
     int shrinks = 0;
-    int extra_tries = 0;
     runner->changed = true;
+    runner->shrinks = 0;
+    runner->calls = 0;
     while(runner->changed) {
       runner->changed = false;
-      size_t stage = 0;
-      while(shrink_buffer(runner->secondary, runner->primary, stage++)) {
-        extra_tries++;
-        if(check_and_update(runner, test_case, data)) {
-          printf("Shrunk buffer to: ");
-          print_buffer(runner->primary);
-          printf("\n");
-          stage = 0;
+      for(int i = 0; i < runner->primary->fill; i++) {
+        conjecture_runner_mirror_buffers(runner);
+        for(unsigned char c = 0; c < runner->primary->data[i]; c++) {
+          runner->secondary->data[i] = c;
+          if(check_and_update(runner, test_case, data)) {
+            break;
+          }
+        }
+      }
+      for(size_t start = runner->primary->fill; start > 0; start--) {
+        if(runner->changed)
           break;
+        bool was_all_zero = false;
+        for(size_t i = start; i > 0; i--) {
+          size_t j = i - 1;
+          if(runner->secondary->data[j] > 0) {
+            runner->secondary->data[j] -= 1;
+            break;
+          } else if(j > 0) {
+            runner->secondary->data[j] = 255;
+          } else {
+            was_all_zero = true;
+          }
+        }
+        if(was_all_zero) {
+          break;
+        } else {
+          if(check_and_update(runner, test_case, data)) {
+            shrinks++;
+          }
         }
       }
     }
-    printf("Shrank example %d times in %d extra tries\n", shrinks, extra_tries);
+    printf("Shrank example %zu times in %zu extra tries\n", runner->shrinks,
+           runner->calls - initial_calls);
     printf("Final buffer: ");
     print_buffer(runner->primary);
     printf("\n");
     return runner->primary;
   } else {
-    printf("No failing test case after %d examples (%d accepted)\n",
-           total_examples, good_examples);
-    if(good_examples * 10 < total_examples) {
+    printf("No failing test case after %zu examples (%zu accepted)\n",
+           runner->calls, runner->accepted);
+    if(runner->accepted * 10 < runner->calls) {
       printf("Failing test due to too few valid examples.\n");
       exit(EXIT_FAILURE);
     }
