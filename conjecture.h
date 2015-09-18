@@ -59,7 +59,10 @@ typedef struct {
   unsigned char *data;
 } conjecture_buffer;
 
-typedef struct { bool rejected; } conjecture_comms;
+typedef struct {
+  bool rejected;
+  size_t index_read;
+} conjecture_comms;
 
 typedef int64_t (*forker)(void *);
 

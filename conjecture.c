@@ -86,6 +86,10 @@ void conjecture_draw_bytes(conjecture_context *context, size_t n,
   } else {
     memmove(destination, context->buffer->data + context->current_index, n);
     context->current_index += n;
+    context->runner->comms->index_read += n;
+    if(context->runner->fork != NULL) {
+      msync(context->runner->comms, sizeof(conjecture_comms), 0);
+    }
   }
 }
 
@@ -232,6 +236,7 @@ static bool is_failing_test_case(conjecture_runner *runner,
                                  conjecture_buffer *buffer,
                                  conjecture_test_case test_case, void *data) {
   runner->comms->rejected = false;
+  runner->comms->index_read = 0;
   if(runner->fork == NULL) {
     int oldout, olderr, devnull;
     fflush(stdout);
@@ -314,6 +319,7 @@ static bool check_and_update(conjecture_runner *runner,
   runner->accepted++;
   if(is_failing_test_case(runner, runner->secondary, test_case, data)) {
     runner->shrinks++;
+    runner->secondary->fill = runner->comms->index_read;
     conjecture_runner_swap_buffers(runner);
     runner->changed = true;
     printf("Shrank failing buffer: ");
@@ -357,7 +363,6 @@ void conjecture_runner_release(conjecture_runner *runner) {
   shmdt((char *)runner->comms);
 }
 
-/*
 static void buffer_delete_range(conjecture_buffer *buffer, size_t start,
                                 size_t end) {
   assert(end >= start);
@@ -369,7 +374,6 @@ static void buffer_delete_range(conjecture_buffer *buffer, size_t start,
   memmove(buffer->data + start, buffer->data + end, gap);
   buffer->fill -= gap;
 }
-*/
 
 void conjecture_context_init_from_buffer(conjecture_context *context,
                                          conjecture_runner *runner,
@@ -417,12 +421,19 @@ conjecture_run_test_for_buffer(conjecture_runner *runner,
     printf("Initial failing buffer: ");
     print_buffer(runner->primary);
     printf("\n");
-    int shrinks = 0;
-    runner->changed = true;
     runner->shrinks = 0;
     runner->calls = 0;
+
+    runner->changed = true;
     while(runner->changed) {
       runner->changed = false;
+      for(size_t l = 128; l > 0; l--) {
+        for(size_t i = 0; i + l < runner->primary->fill; i++) {
+          conjecture_runner_mirror_buffers(runner);
+          buffer_delete_range(runner->secondary, i, i + l);
+          check_and_update(runner, test_case, data);
+        }
+      }
       for(int i = 0; i < runner->primary->fill; i++) {
         conjecture_runner_mirror_buffers(runner);
         for(unsigned char c = 0; c < runner->primary->data[i]; c++) {
@@ -432,27 +443,40 @@ conjecture_run_test_for_buffer(conjecture_runner *runner,
           }
         }
       }
-      for(size_t start = runner->primary->fill; start > 0; start--) {
+      for(size_t start = 0; start < runner->primary->fill; start++) {
         if(runner->changed)
           break;
         bool was_all_zero = false;
         for(size_t i = start; i > 0; i--) {
-          size_t j = i - 1;
-          if(runner->secondary->data[j] > 0) {
-            runner->secondary->data[j] -= 1;
+          if(runner->secondary->data[i] > 0) {
+            runner->secondary->data[i] -= 1;
             break;
-          } else if(j > 0) {
-            runner->secondary->data[j] = 255;
+          } else if(i > 0) {
+            runner->secondary->data[i] = 255;
           } else {
             was_all_zero = true;
           }
         }
-        if(was_all_zero) {
-          break;
-        } else {
-          if(check_and_update(runner, test_case, data)) {
-            shrinks++;
-          }
+        if(!was_all_zero) {
+          check_and_update(runner, test_case, data);
+        }
+      }
+    }
+    for(size_t i = 0; i < runner->primary->fill; i++) {
+      if(runner->primary->data[i] == 0)
+        continue;
+      for(size_t j = i + 1; j < runner->primary->fill; j++) {
+        if(runner->primary->data[j] == 0)
+          continue;
+        unsigned char c = runner->primary->data[i];
+        if(runner->primary->data[j] < c)
+          c = runner->primary->data[j];
+        for(unsigned char d = c; d > 0; d--) {
+          conjecture_runner_mirror_buffers(runner);
+          runner->secondary->data[j] -= d;
+          runner->secondary->data[i] -= d;
+          if(check_and_update(runner, test_case, data))
+            break;
         }
       }
     }
