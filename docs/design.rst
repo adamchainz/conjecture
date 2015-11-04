@@ -132,7 +132,6 @@ be able to do simultaneous shrinking of the two. Hypothesis can do simultaneous 
 lists. In Conjecture simultaneous shrinking will happen regardless of any structural relation between the examples,
 because it happens at the byte level so the relation is irrelevant.
 
-
 .. code-block:: python
 
 
@@ -145,6 +144,13 @@ because it happens at the byte level so the relation is irrelevant.
       x = find(sos, lambda ls: len(union(ls)) >= 30)
       assert x == {frozenset(range(30))}
 
+This example tries to find a set of sets with at least 30 elements in their union. In QuickCheck or Hypothesis
+this would probably result in multiple disjoint sets whose union was the range 0 to 30 (hopefully), but they've
+got almost no hope of finding a single element example. In Conjecture, as a consequence of how lists are represented
+at the byte level, adjacent lists can be merged together which produces a better example.
+
+This isn't a particularly interesting thing in its own right, but it demonstrates the sort of shrinking that can
+happen when you don't have to care abotu the structure.`
 
 Frequently Asked/Anticipated Questions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -168,36 +174,14 @@ Its two main advantages over Hypothesis from a usage point of view are:
    at all.
 
 
-Why abort the test when you read past the end of the buffer?
-------------------------------------------------------------
-
-In principle you could just generate more random data when you reach the end. Why not do that?
-
-The answer is mostly "It's simpler this way". Conjecture is designed to run its tests in a forked subprocess,
-and it's easier and more resilient to just grow the buffer to the size needed in the controlling process and
-pass it in than to pass a lot of data back to the parent process.
-
-Moreover, the feature of stopping when you hit a certain number of bytes read *is* essential. This doesn't stop
-you growing the buffer, but it does mean you're going to at some point need to do this anyway.
-
-There are two major reasons to do this:
-
-1. It naturally provides a way of bounding you away from the case where you accidentally generate massive
-   examples. This can easily happen by accident when just generating things at random, and having a cap on the
-   number of bytes read will (for most sensible usage patterns) intrinsically prevent that and cause you to
-   sample from the conditional distribution of things that are not ridiculously large.
-2. When simplifying, once you have an example where you have n bytes, as soon as you try to read the n + 1th
-   byte you're definitely not considering a simpler example and thus should discard this immediately rather than
-   wasting time trying to find out whether or not it's a failing example.
-
 Will this work with simplifying complex data?
 ---------------------------------------------
 
 Yes.
 
-I have a prototype based on these concepts which passes most of alightly modified version of Hypothesis's example
-shrinking. It takes 2 or 3 times as long in some of these tests, but this is competing against a heavily optimised
-implementation which frequently takes a tenth of the time of Haskell Quickcheck.
+Take a look at the `example quality test suite <https://github.com/DRMacIver/conjecture/blob/master/python/tests/test_example_quality.py>`_
+for the Python research prototype for some examples of what it can do. The example quality significantly outperforms
+that of QuickCheck.
 
 What are the downsides?
 -----------------------
@@ -212,17 +196,6 @@ The limitations I suspect are intrinsic are:
    imperative languages, I don't think this will adapt well to functional ones. There's a reasonably natural
    monadic interface so it shouldn't be *too* bad, but it's probably going to feel a bit alien.
 
-Current limitations that I think I know how to solve:
-
-1. Right now I'm not completely clear on how to get great quality examples out of it - the distribution is a bit
-   too 'flat' and lacks an equivalent to `Hypothesis's parametrization <http://hypothesis.readthedocs.org/en/latest/internals.html#parametrization>`_.
-   It should be possible to fix this by making generation of the byte stream itself smarter, e.g. by generating an
-   example which passes the assumptions of the test and then trying a sequence of mutations on it.
-2. assume() in conjecture is not adaptive like in Hypothesis. It just aborts the whole test. I think I can
-   actually make assume smarter than in Hypothesis by selective editing of the data stream, but it's hard to
-   say for sure.
-   
-But both of these are "merely Quickcheck level good" which is a nice problem to have.
 
 How has nobody thought of this before?
 --------------------------------------
