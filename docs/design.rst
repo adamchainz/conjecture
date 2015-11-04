@@ -18,7 +18,7 @@ want from that.
 Implementation
 ~~~~~~~~~~~~~~
 
-Note: The current Python research cprototype is the best way to understand the hairy details, many of which are
+Note: The current Python research prototype is the best way to understand the hairy details, many of which are
 elided here for the sake of brevity. This should be considered a high level overview.
 
 The core idea of Conjecture is very simple: Data generators are build on top of other data generators. Shrinking
