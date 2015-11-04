@@ -54,8 +54,7 @@ def test_minimize_sets_of_sets():
         return reduce(operator.or_, ls, frozenset())
 
     x = find(sos, lambda ls: len(union(ls)) >= 30)
-    assert len(union(x)) == 30
-    assert sum(map(len, x)) == 30
+    assert x == {frozenset(range(30))}
 
 
 def length_of_longest_ordered_sequence(xs):

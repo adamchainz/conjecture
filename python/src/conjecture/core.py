@@ -5,6 +5,10 @@ from conjecture.testdata import TestData, Status
 from conjecture.errors import StopTest
 
 
+class StopShrinking(Exception):
+    pass
+
+
 DEBUG = os.getenv('CONJECTURE_DEBUG') == "true"
 
 
@@ -29,6 +33,7 @@ class TestRunner(object):
         self.settings = settings or Settings()
         self.last_data = None
         self.changed = 0
+        self.shrinks = 0
         self.fill_size = min(8, self.settings.buffer_size)
 
     def new_buffer(self):
@@ -81,13 +86,23 @@ class TestRunner(object):
         self.test_function(data)
         data.freeze()
         if self.consider_new_test_data(data):
+            if self.last_data.status == Status.INTERESTING:
+                self.shrinks += 1
             self.last_data = data
             self.update_fill_size()
             self.changed += 1
+            if self.shrinks >= self.settings.max_shrinks:
+                raise StopShrinking()
             return True
         return False
 
     def run(self):
+        try:
+            self._run()
+        except StopShrinking:
+            pass
+
+    def _run(self):
         self.new_buffer()
         mutations = 0
         generation = 0
@@ -169,9 +184,6 @@ class TestRunner(object):
                 i += 1
             if self.changed > change_counter:
                 continue
-            self.do_quadratic_shrink()
-            if self.changed > change_counter:
-                continue
             i = 0
             while i < len(self.last_data.buffer):
                 buf = self.last_data.buffer
@@ -190,68 +202,74 @@ class TestRunner(object):
                                 break
                             j -= 1
                 i += 1
-
-    def do_quadratic_shrink(self):
-        change_marker = self.changed
-        buckets = [[] for _ in range(256)]
-        for i, c in enumerate(self.last_data.buffer):
-            buckets[c].append(i)
-        indices = []
-        for bucket in buckets:
-            if len(bucket) > 1:
-                indices.extend(
-                    (j, k)
-                    for j in bucket for k in bucket
-                    if j < k
-                )
-        random.shuffle(indices)
-        for j, k in indices:
-            buf = self.last_data.buffer
-            if k >= len(buf):
+            if self.changed > change_counter:
                 continue
-            if buf[j] == buf[k]:
-                c = buf[j]
-                if c == 0:
-                    if j > 0 and buf[j - 1] > 0 and buf[k - 1] > 0:
-                        self.incorporate_new_buffer(
-                            buf[:j - 1] +
-                            bytes([buf[j - 1] - 1, 255]) +
-                            buf[j+1:k-1] +
-                            bytes([buf[k - 1] - 1, 255]) +
-                            buf[k+1:]
-                        )
-                c = buf[j]
-                if c > 0:
-                    bd = bytes([c - 1])
-                    if self.incorporate_new_buffer(
-                        buf[:j] + bd + buf[j+1:k] + bd +
-                        buf[k+1:]
-                    ):
-                        for d in range(c - 1):
-                            buf = self.last_data.buffer
-                            bd = bytes([d])
-                            self.incorporate_new_buffer(
-                                buf[:j] + bd + buf[j+1:k] + bd +
-                                buf[k+1:]
-                            )
-        if self.changed > change_marker:
-            return
-        buf = self.last_data.buffer
-        for j in range(len(buf)):
-            buf = self.last_data.buffer
-            if j >= len(buf):
-                break
-            if buf[j] == 0:
-                continue
-            for k in range(j + 1, len(buf)):
+            buckets = [[] for _ in range(256)]
+            for i, c in enumerate(self.last_data.buffer):
+                buckets[c].append(i)
+            indices = []
+            for bucket in buckets:
+                if len(bucket) > 1:
+                    indices.extend(
+                        (j, k)
+                        for j in bucket for k in bucket
+                        if j < k
+                    )
+            for j, k in indices:
                 buf = self.last_data.buffer
                 if k >= len(buf):
+                    continue
+                if buf[j] == buf[k]:
+                    c = buf[j]
+                    if c == 0:
+                        if j > 0 and buf[j - 1] > 0 and buf[k - 1] > 0:
+                            self.incorporate_new_buffer(
+                                buf[:j - 1] +
+                                bytes([buf[j - 1] - 1, 255]) +
+                                buf[j+1:k-1] +
+                                bytes([buf[k - 1] - 1, 255]) +
+                                buf[k+1:]
+                            )
+                    c = buf[j]
+                    if c > 0:
+                        bd = bytes([c - 1])
+                        if self.incorporate_new_buffer(
+                            buf[:j] + bd + buf[j+1:k] + bd +
+                            buf[k+1:]
+                        ):
+                            for d in range(c - 1):
+                                buf = self.last_data.buffer
+                                bd = bytes([d])
+                                self.incorporate_new_buffer(
+                                    buf[:j] + bd + buf[j+1:k] + bd +
+                                    buf[k+1:]
+                                )
+            if self.changed > change_counter:
+                continue
+            buf = self.last_data.buffer
+            for j in range(len(buf)):
+                buf = self.last_data.buffer
+                if j >= len(buf):
                     break
-                if buf[j] > buf[k]:
-                    self.incorporate_new_buffer(
-                        buf[:j] + bytes([buf[k]]) + buf[j+1:k] +
-                        bytes([buf[j]]) + buf[k+1:]
-                    )
+                if buf[j] == 0:
+                    continue
+                for k in range(j + 1, len(buf)):
+                    buf = self.last_data.buffer
+                    if k >= len(buf):
+                        break
+                    if buf[j] > buf[k]:
+                        self.incorporate_new_buffer(
+                            buf[:j] + bytes([buf[k]]) + buf[j+1:k] +
+                            bytes([buf[j]]) + buf[k+1:]
+                        )
+                    buf = self.last_data.buffer
+                    if k >= len(buf):
+                        break
+                    if buf[j] > 0 and buf[k] > 0:
+                        self.incorporate_new_buffer(
+                            buf[:j] + bytes([buf[j] - 1]) + buf[j+1:k] +
+                            bytes([buf[k] - 1]) + buf[k+1:]
+                        )
 
 
 def find_interesting_buffer(test_function, settings=None):
