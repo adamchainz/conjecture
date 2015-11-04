@@ -26,10 +26,8 @@ and yet strictly more powerful than classic Quickcheck style property based test
 If you want to know more about how it works, there is a `rough design doc also
 checked in to this repo <docs/design.rst>`_.
 
-If you want to see some examples of usage, there's `a collection of simple tests
-<https://github.com/DRMacIver/conjecture/tree/master/examples>`_ (most or all of
-which fail) in the repo demonstrating some common behaviours and approaches.
-
+If you want to see some code there's `a python research prototype demonstrating
+the concepts <https://github.com/DRMacIver/conjecture/tree/master/python/>`_.
 
 ----------
 Community
