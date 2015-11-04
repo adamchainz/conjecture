@@ -2,7 +2,7 @@
 Conjecture
 ==========
 
-Conjecture is a new approach to property based testing in C.
+Conjecture is a new approach to property based testing.
 
 The core concept of Conjecture is: What if you could do the most basic sort of
 randomized testing which everybody starts out with, only instead of it being awful
@@ -47,35 +47,16 @@ in effect in this community and you are expected to adhere to it.
 Development Status
 ------------------
 
-Conjecture is currently not even alpha quality. It is very much a proof of the
-concept. I intend to make it into production ready software, but it's just
-not there yet. It's not even hanging out in the same time zone.
+Conjecture is currently a prototype. The python code base demonstrates that it works (extremely well in fact)
+but is not ready to use, and besides you should probaby be using `Hypothesis <http://hypothesis.readthedocs.org/en/latest/>`_ instead.
 
-I'll be working on it a fair bit, but there's quite a lot to do and it's more
-likely to make progress if someone is interested in paying for the work.
-
-~~~~~~~~~~~~~~~~~~~
-Current limitations
-~~~~~~~~~~~~~~~~~~~
-
-1. It is not particularly easy to write bindings which e.g. tie into a
-   language's exception system rather than just crashing the process when you
-   do something wrong.
-2. The quality of data generation is not particularly good - it's essentially
-   what you would get out of a normal random number generator, which is not
-   really optimal for triggering bugs.
-3. Shrinking is currently much slower than it should be.
-4. It has not been tested on any significant range of platforms and compilers -
-   right now it's very much in a "works on my machine" stage. It is unlikely to
-   work on anything that is not 64-bit Linux right now. It definitely will not
-   work on Windows and I'm not currently sure how to make it do so.
-5. It hasn't really been tested much at all other than manually poking at it
-   myself.
+If you're interested in having Conjecture available for your language, I am able and willing to do so for a very
+reasonable day rate: The design is one that is extremely easy to port to new languages, so in most cases it is
+unlikely to take more than a month of work to get a solid version available.
 
 ---------
 Licensing
 ---------
 
-Conjecture is licensed under the GPL v3. If you wish to use it under a
-different license, please contact me at
-`licensing@drmaciver.com <mailto:licensing@drmaciver.com>`_.
+All versions of Conjecture are / will be licensed under the GPL v3. If you wish to use it under a
+different license, please contact me at `licensing@drmaciver.com <mailto:licensing@drmaciver.com>`_.
