@@ -4,13 +4,19 @@ from conjecture.testdata import TestData
 
 
 def find(draw, check, settings=None):
+    seen = False
+
     def test_function(data):
+        nonlocal seen
         value = draw(data)
         if check(value):
+            seen = True
             data.incur_cost(len(repr(data)))
             if DEBUG:
                 print(data.buffer[:data.index], "->",  value)
             data.mark_interesting()
+        elif not seen and DEBUG:
+            print(data.buffer[:data.index], "->",  value)
     buffer = find_interesting_buffer(
         test_function, settings=settings or Settings(
             mutations=50, generations=500,
