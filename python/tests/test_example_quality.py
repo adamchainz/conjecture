@@ -158,6 +158,12 @@ def test_out_of_bounds_overflow_mean():
         good_list, lambda xs: not (min(xs) <= mean(xs) <= max(xs)))
 
 
+def test_no_overflow_mean():
+    find(
+        st.lists(st.floats()).filter(lambda x: x and math.isfinite(sum(x))),
+        lambda xs: not (min(xs) <= mean(xs) <= max(xs)))
+
+
 def test_minimal_bool_lists():
     t = find(
         st.lists(st.booleans()), lambda x: any(x) and not all(x)
