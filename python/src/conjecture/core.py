@@ -186,15 +186,15 @@ class TestRunner(object):
                     buf[:i] + buf[i+1:]
                 ):
                     if buf[i] == 0:
+                        buf = bytearray(buf)
                         j = i
-                        while j > 0:
+                        while j >= 0:
                             if buf[j] > 0:
-                                self.incorporate_new_buffer(
-                                    buf[:j] + bytes([buf[j] - 1]) +
-                                    bytes([255]) * (i - j) +
-                                    buf[i+1:]
-                                )
+                                buf[j] -= 1
+                                self.incorporate_new_buffer(bytes(buf))
                                 break
+                            else:
+                                buf[j] = 255
                             j -= 1
                 i += 1
             if self.changed > change_counter:
@@ -261,7 +261,7 @@ class TestRunner(object):
                     buf = self.last_data.buffer
                     if k >= len(buf):
                         break
-                    if buf[j] > 0 and buf[k] > 0:
+                    if buf[j] > 0 and buf[k] > 0 and buf[j] != buf[k]:
                         self.incorporate_new_buffer(
                             buf[:j] + bytes([buf[j] - 1]) + buf[j+1:k] +
                             bytes([buf[k] - 1]) + buf[k+1:]
