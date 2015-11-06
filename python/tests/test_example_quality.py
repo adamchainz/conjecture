@@ -274,3 +274,20 @@ def test_minimum_sum_tree(n):
     assert sum(ts) == n
     if n > 0:
         assert 0 not in ts
+
+
+def test_small_integer():
+    t = find(st.n_byte_unsigned(8), lambda x: abs(x) <= 100 and abs(x) > 0)
+    assert t == 1
+
+
+def test_find_large_integer():
+    t = find(st.n_byte_unsigned(8), lambda x: x >= 2 ** 64 - 100)
+    assert t == 2 ** 64 - 100
+
+
+def test_find_middling_integer():
+    t = find(
+        st.n_byte_unsigned(8),
+        lambda x: x >= 2 ** 62 and x <= 2 ** 64 - 2 ** 62)
+    assert t == 2 ** 62
