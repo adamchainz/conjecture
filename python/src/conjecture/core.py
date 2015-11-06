@@ -103,11 +103,11 @@ class TestRunner(object):
                 if generation >= self.settings.generations:
                     return
                 mutations = 0
+                self.new_buffer()
+            else:
                 self.incorporate_new_buffer(
                     self.mutate_data_to_new_buffer()
                 )
-            else:
-                self.new_buffer()
             mutations += 1
 
         initial_changes = self.changed
