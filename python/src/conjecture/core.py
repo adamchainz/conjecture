@@ -288,8 +288,8 @@ class TestRunner(object):
         probe = self.rand_bytes(1)[0]
         if probe <= 100 or len(self.last_data.intervals) <= 1:
             if self.random.randint(0, 1) or len(self.last_data.intervals) <= 1:
-                u = self.random.randint(0, len(self.last_data.buffer) - 2)
-                v = self.random.randint(u + 1, len(self.last_data.buffer) - 1)
+                u = self.random.randint(0, self.last_data.index - 2)
+                v = self.random.randint(u + 1, self.last_data.index - 1)
             else:
                 u, v = self.random.choice(self.last_data.intervals)
             c = self.random.randint(0, 2)
