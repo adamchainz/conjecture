@@ -1,5 +1,6 @@
 from functools import wraps
 import inspect
+import struct
 
 
 class Strategy(object):
@@ -197,22 +198,8 @@ assert len(NASTY_FLOATS) == 32
 
 @strategy
 def floats(data):
-    # Note: We always draw both parts of the float. This is important because
-    # it means we can consistently simplify nasty floats into nice floats.
-    # Otherwise this might cause us to run out of data.
-    b = byte.base(data)
-    integral_part = integers(data)
-    fractional_part = fractional_float.base(data)
-    if b == 0:
-        return 0.0
-    if b == 1:
-        return float(integral_part)
-    branch = 255 - b
-    if branch < 32:
-        data.incur_cost(1)
-        return NASTY_FLOATS[31 - branch & 31]
-    else:
-        return float(integral_part) + fractional_part
+    k = n_byte_unsigned.base(data, 8)
+    return struct.unpack(b'!d', struct.pack(b'!Q', k))[0]
 
 
 @strategy

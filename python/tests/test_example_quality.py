@@ -297,3 +297,11 @@ def test_find_middling_integer():
         st.n_byte_unsigned(8),
         lambda x: x >= 2 ** 62 and x <= 2 ** 64 - 2 ** 62)
     assert t == 2 ** 62
+
+
+def test_find_infinity():
+    assert find(st.floats(), lambda x: not math.isfinite(x)) == float('inf')
+
+
+def test_find_reasonable_range_float():
+    assert find(st.floats(), lambda x: 1 <= x <= 1000) == 1.0
