@@ -66,6 +66,8 @@ class TestRunner(object):
             return data.index <= self.last_data.index
         if data.status == Status.INTERESTING:
             assert len(data.buffer) <= len(self.last_data.buffer)
+            if len(data.buffer) == len(self.last_data.buffer):
+                assert data.buffer < self.last_data.buffer
             return interest_key(data) < interest_key(self.last_data)
         return True
 
@@ -230,10 +232,11 @@ class TestRunner(object):
                             for d in range(c - 1):
                                 buf = self.last_data.buffer
                                 bd = bytes([d])
-                                self.incorporate_new_buffer(
+                                if self.incorporate_new_buffer(
                                     buf[:j] + bd + buf[j+1:k] + bd +
                                     buf[k+1:]
-                                )
+                                ):
+                                    break
             if self.changed > change_counter:
                 continue
             buf = self.last_data.buffer
