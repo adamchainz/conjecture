@@ -34,22 +34,13 @@ class TestRunner(object):
         self.last_data = None
         self.changed = 0
         self.shrinks = 0
-        self.fill_size = min(8, self.settings.buffer_size)
         self.random = Random()
 
     def new_buffer(self):
-        buffer = self.rand_bytes(self.fill_size) + bytes(
-            self.settings.buffer_size - self.fill_size)
+        buffer = self.rand_bytes(self.settings.buffer_size)
         self.last_data = TestData(buffer)
         self.test_function(self.last_data)
         self.last_data.freeze()
-        self.update_fill_size()
-
-    def update_fill_size(self):
-        self.fill_size = min(
-            max(self.fill_size, self.last_data.index * 2),
-            self.settings.buffer_size
-        )
 
     def test_function(self, data):
         try:
@@ -90,7 +81,6 @@ class TestRunner(object):
             if self.last_data.status == Status.INTERESTING:
                 self.shrinks += 1
             self.last_data = data
-            self.update_fill_size()
             self.changed += 1
             if self.shrinks >= self.settings.max_shrinks:
                 raise StopShrinking()
