@@ -1,6 +1,6 @@
 import typing
 import os
-import random
+from random import Random
 from conjecture.testdata import TestData, Status
 from conjecture.errors import StopTest
 
@@ -35,9 +35,10 @@ class TestRunner(object):
         self.changed = 0
         self.shrinks = 0
         self.fill_size = min(8, self.settings.buffer_size)
+        self.random = Random()
 
     def new_buffer(self):
-        buffer = os.urandom(self.fill_size) + bytes(
+        buffer = self.rand_bytes(self.fill_size) + bytes(
             self.settings.buffer_size - self.fill_size)
         self.last_data = TestData(buffer)
         self.test_function(self.last_data)
@@ -113,7 +114,7 @@ class TestRunner(object):
                     return
                 mutations = 0
                 self.incorporate_new_buffer(
-                    mutate_data_to_new_buffer(self.last_data)
+                    self.mutate_data_to_new_buffer()
                 )
             else:
                 self.new_buffer()
@@ -167,9 +168,8 @@ class TestRunner(object):
                         ):
                             break
                         elif self.incorporate_new_buffer(
-                            buf[:i] + bytes([c]) + os.urandom(
-                                len(buf) - i - 1
-                            )
+                            buf[:i] + bytes([c]) + self.rand_bytes((
+                                len(buf) - i - 1))
                         ):
                             break
                 i += 1
@@ -271,6 +271,58 @@ class TestRunner(object):
                             bytes([buf[k] - 1]) + buf[k+1:]
                         )
 
+    def mutate_data_to_new_buffer(self):
+        n = min(len(self.last_data.buffer), self.last_data.index)
+        if not n:
+            return b''
+        if n == 1:
+            return self.rand_bytes(1)
+
+        if self.last_data.status == Status.OVERRUN:
+            result = bytearray(self.last_data.buffer)
+            for i, c in enumerate(self.last_data.buffer):
+                t = self.random.randint(0, 2)
+                if t == 0:
+                    result[i] = 0
+                elif t == 1:
+                    result[i] = self.random.randint(0, c)
+                else:
+                    result[i] = c
+
+        probe = self.rand_bytes(1)[0]
+        if probe <= 100 or len(self.last_data.intervals) <= 1:
+            if self.random.randint(0, 1) or len(self.last_data.intervals) <= 1:
+                u = self.random.randint(0, len(self.last_data.buffer) - 2)
+                v = self.random.randint(u + 1, len(self.last_data.buffer) - 1)
+            else:
+                u, v = self.random.choice(self.last_data.intervals)
+            c = self.random.randint(0, 2)
+            if c == 0:
+                replace = b'\0' * (v - u)
+            elif c == 1:
+                replace = bytes([255]) * (v - u)
+            else:
+                replace = self.rand_bytes(v - u)
+            return self.last_data.buffer[:u] + \
+                replace + self.last_data.buffer[v:]
+        else:
+            int1 = None
+            int2 = None
+            while int1 == int2:
+                i = self.random.randint(0, len(self.last_data.intervals) - 2)
+                int1 = self.last_data.intervals[i]
+                int2 = self.last_data.intervals[
+                    self.random.randint(
+                        i + 1, len(self.last_data.intervals) - 1)]
+            return self.last_data.buffer[:int1[0]] + \
+                self.last_data.buffer[int2[0]:int2[1]] + \
+                self.last_data.buffer[int1[1]:]
+
+    def rand_bytes(self, n):
+        if n == 0:
+            return b''
+        return self.random.getrandbits(n * 8).to_bytes(n, 'big')
+
 
 def find_interesting_buffer(test_function, settings=None):
     runner = TestRunner(test_function, settings)
@@ -284,48 +336,3 @@ def interest_key(data):
     return (
         data.cost, len(data.intervals), len(buf), buf
     )
-
-
-def mutate_data_to_new_buffer(data):
-    n = min(len(data.buffer), data.index)
-    if not n:
-        return b''
-    if n == 1:
-        return os.urandom(1)
-
-    if data.status == Status.OVERRUN:
-        result = bytearray(data.buffer)
-        for i, c in enumerate(data.buffer):
-            t = random.randint(0, 2)
-            if t == 0:
-                result[i] = 0
-            elif t == 1:
-                result[i] = random.randint(0, c)
-            else:
-                result[i] = c
-
-    probe = os.urandom(1)[0]
-    if probe <= 100 or len(data.intervals) <= 1:
-        if random.randint(0, 1) or len(data.intervals) <= 1:
-            u = random.randint(0, len(data.buffer) - 2)
-            v = random.randint(u + 1, len(data.buffer) - 1)
-        else:
-            u, v = random.choice(data.intervals)
-        c = random.randint(0, 2)
-        if c == 0:
-            replace = b'\0' * (v - u)
-        elif c == 1:
-            replace = bytes([255]) * (v - u)
-        else:
-            replace = os.urandom(v - u)
-        return data.buffer[:u] + replace + data.buffer[v:]
-    else:
-        int1 = None
-        int2 = None
-        while int1 == int2:
-            i = random.randint(0, len(data.intervals) - 2)
-            int1 = data.intervals[i]
-            int2 = data.intervals[
-                random.randint(i + 1, len(data.intervals) - 1)]
-        return data.buffer[:int1[0]] + data.buffer[int2[0]:int2[1]] + \
-            data.buffer[int1[1]:]
