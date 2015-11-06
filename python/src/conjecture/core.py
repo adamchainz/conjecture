@@ -74,7 +74,10 @@ class TestRunner(object):
     def incorporate_new_buffer(
         self, buffer: bytes
     ) -> bool:
-        if buffer == self.last_data.buffer:
+        if (
+            buffer[:self.last_data.index] ==
+            self.last_data.buffer[:self.last_data.index]
+        ):
             return False
         data = TestData(buffer)
         self.test_function(data)
