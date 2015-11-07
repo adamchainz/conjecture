@@ -134,11 +134,13 @@ def assume(data, x):
         data.mark_invalid()
 
 
+@pytest.mark.float
 def test_non_reversible_floats():
     good_list = st.lists(st.floats().filter(math.isfinite))
     find(good_list, lambda xs:  sum(xs) != sum(reversed(xs)))
 
 
+@pytest.mark.float
 def test_non_associative_floats():
     tup = st.tuples(
         st.floats(), st.floats(), st.floats()).filter(
@@ -153,11 +155,13 @@ def mean(ls):
 good_list = st.lists(st.floats().filter(math.isfinite)).filter(bool)
 
 
+@pytest.mark.float
 def test_out_of_bounds_overflow_mean():
     find(
         good_list, lambda xs: not (min(xs) <= mean(xs) <= max(xs)))
 
 
+@pytest.mark.float
 def test_no_overflow_mean():
     find(
         st.lists(st.floats()).filter(lambda x: x and math.isfinite(sum(x))),
@@ -299,9 +303,43 @@ def test_find_middling_integer():
     assert t == 2 ** 62
 
 
+@pytest.mark.float
 def test_find_infinity():
     assert find(st.floats(), lambda x: not math.isfinite(x)) == float('inf')
 
 
+@pytest.mark.float
 def test_find_reasonable_range_float():
     assert find(st.floats(), lambda x: 1 <= x <= 1000) == 1.0
+
+
+@pytest.mark.float
+def test_imprecise_pow():
+    find(st.floats(), lambda x: math.isfinite(x) and (x * 3.0) / 3.0 != x)
+
+
+@pytest.mark.float
+def test_sum_float():
+    x = find(st.lists(st.floats()), lambda x: sum(x) >= 2 ** 32)
+    assert sum(x) == 2 ** 32
+
+
+@pytest.mark.float
+def test_non_integral_float():
+    find(st.floats(), lambda x: math.isfinite(x) and int(x) != x)
+
+
+@pytest.mark.float
+def test_integral_float():
+    find(st.floats(), lambda x: math.isfinite(x) and int(x) == x)
+
+
+@pytest.mark.float
+def test_can_find_zero_and_it_is_positive():
+    t = find(st.floats(), lambda x: x == 0)
+    assert math.copysign(1, t) > 0
+
+
+@pytest.mark.float
+def test_can_find_negative_zero():
+    find(st.floats(), lambda x: x == 0 and math.copysign(1, x) < 0)

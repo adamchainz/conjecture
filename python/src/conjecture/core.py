@@ -285,22 +285,18 @@ class TestRunner(object):
                 else:
                     result[i] = c
 
-        probe = self.rand_bytes(1)[0]
-        if probe <= 100 or len(self.last_data.intervals) <= 1:
-            if self.random.randint(0, 1) or len(self.last_data.intervals) <= 1:
-                u = self.random.randint(0, self.last_data.index - 2)
-                v = self.random.randint(u + 1, self.last_data.index - 1)
-            else:
-                u, v = self.random.choice(self.last_data.intervals)
+        probe = self.random.randint(0, 255)
+        if probe <= 200 or len(self.last_data.intervals) <= 1:
             c = self.random.randint(0, 2)
+            i = self.random.randint(0, self.last_data.index - 1)
+            result = bytearray(self.last_data.buffer)
             if c == 0:
-                replace = b'\0' * (v - u)
+                result[i] ^= (1 << self.random.randint(0, 7))
             elif c == 1:
-                replace = bytes([255]) * (v - u)
+                result[i] = 0
             else:
-                replace = self.rand_bytes(v - u)
-            return self.last_data.buffer[:u] + \
-                replace + self.last_data.buffer[v:]
+                result[i] = 255
+            return bytes(result)
         else:
             int1 = None
             int2 = None
