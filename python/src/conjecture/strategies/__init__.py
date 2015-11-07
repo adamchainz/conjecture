@@ -188,10 +188,11 @@ INFINITY = float('inf')
 
 @strategy
 def floats(data):
-    b = byte.base(data)
+    branch = 255 - byte.base(data)
     k = n_byte_signed.base(data, 8)
-    branch = 255 - b
     if branch < 32:
+        # This branch ignores k but we draw it anyway so we can simplify into
+        # it if we make it out of this branch.
         f = NASTY_FLOATS[31 - branch & 31]
     elif branch >= 200:
         f = float(k)
@@ -199,7 +200,7 @@ def floats(data):
         f = struct.unpack(b'!d', struct.pack(b'!q', k))[0]
     if not math.isfinite(f):
         data.incur_cost(2)
-    elif -1 < f < 1:
+    elif 0 < abs(f) < 1:
         data.incur_cost(1)
     return f
 

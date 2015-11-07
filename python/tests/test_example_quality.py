@@ -343,3 +343,18 @@ def test_can_find_zero_and_it_is_positive():
 @pytest.mark.float
 def test_can_find_negative_zero():
     find(st.floats(), lambda x: x == 0 and math.copysign(1, x) < 0)
+
+
+def safesquare(x):
+    try:
+        return x ** 2
+    except OverflowError:
+        return float('inf')
+
+
+@pytest.mark.float
+def test_sphere():
+    t = find(
+        st.lists(st.floats()),
+        lambda x: len(x) >= 3 and sum(map(safesquare, x)) >= 1)
+    assert t == [0.0, 0.0, 1.0]
