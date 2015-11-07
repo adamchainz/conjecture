@@ -115,6 +115,12 @@ class TestRunner(object):
                 )
             mutations += 1
 
+        for c in range(256):
+            if self.incorporate_new_buffer(bytes(
+                min(c, b) for b in self.last_data.buffer
+            )):
+                break
+
         initial_changes = self.changed
         change_counter = -1
         while (
