@@ -1,6 +1,7 @@
 from functools import wraps
 import inspect
 import struct
+import math
 
 
 class Strategy(object):
@@ -174,14 +175,31 @@ def just(data, value):
     return value
 
 
+NASTY_FLOATS = [
+    0.0, 0.5, 1.0 / 3, 10e6, 10e-6, 1.175494351e-38, 2.2250738585072014e-308,
+    1.7976931348623157e+308, 3.402823466e+38, 9007199254740992, 1 - 10e-6,
+    1 + 10e-6, 1.192092896e-07, 2.2204460492503131e-016,
+    float('inf'), float('nan'),
+]
+NASTY_FLOATS.extend([-x for x in NASTY_FLOATS])
+assert len(NASTY_FLOATS) == 32
+INFINITY = float('inf')
+
+
 @strategy
 def floats(data):
+    b = byte.base(data)
     k = n_byte_unsigned.base(data, 8)
-    if k != int(k):
+    branch = 255 - b
+    if branch < 32:
+        f = NASTY_FLOATS[31 - branch & 31]
+    else:
+        f = struct.unpack(b'!d', struct.pack(b'!Q', k))[0]
+    if not math.isfinite(f):
+        data.incur_cost(2)
+    elif -1 < f < 1:
         data.incur_cost(1)
-    if k < 1:
-        data.incur_cost(1)
-    return struct.unpack(b'!d', struct.pack(b'!Q', k))[0]
+    return f
 
 
 @strategy
