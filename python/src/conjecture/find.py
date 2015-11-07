@@ -19,7 +19,7 @@ def find(draw, check, settings=None):
             print(data.buffer[:data.index], "->",  value)
     buffer = find_interesting_buffer(
         test_function, settings=settings or Settings(
-            mutations=50, generations=500,
+            mutations=200, generations=1000,
         ))
     if buffer is not None:
         result = draw(TestData(buffer))
