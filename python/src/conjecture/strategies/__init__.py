@@ -178,7 +178,7 @@ def just(data, value):
 NASTY_FLOATS = [
     0.0, 0.5, 1.0 / 3, 10e6, 10e-6, 1.175494351e-38, 2.2250738585072014e-308,
     1.7976931348623157e+308, 3.402823466e+38, 9007199254740992, 1 - 10e-6,
-    1 + 10e-6, 1.192092896e-07, 2.2204460492503131e-016,
+    2 + 10e-6, 1.192092896e-07, 2.2204460492503131e-016,
     float('inf'), float('nan'),
 ]
 NASTY_FLOATS.extend([-x for x in NASTY_FLOATS])
@@ -189,15 +189,18 @@ INFINITY = float('inf')
 @strategy
 def floats(data):
     branch = 255 - byte.base(data)
-    k = n_byte_signed.base(data, 8)
+    k = n_byte_unsigned.base(data, 8)
     if branch < 32:
         # This branch ignores k but we draw it anyway so we can simplify into
         # it if we make it out of this branch.
         f = NASTY_FLOATS[31 - branch & 31]
-    elif branch >= 200:
+        data.incur_cost(100)
+    elif branch >= 201:
         f = float(k)
+        if branch < 230:
+            f = -f
     else:
-        f = struct.unpack(b'!d', struct.pack(b'!q', k))[0]
+        f = struct.unpack(b'!d', struct.pack(b'!Q', k))[0]
     if not math.isfinite(f):
         data.incur_cost(2)
     elif 0 < abs(f) < 1:

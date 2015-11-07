@@ -1,6 +1,6 @@
 from conjecture import find, Settings, NoSuchExample
 import conjecture.strategies as st
-
+import struct
 import math
 import pytest
 from functools import reduce
@@ -148,8 +148,11 @@ def test_non_associative_floats():
     find(tup, lambda x: (x[0] + x[1]) + x[2] != x[0] + (x[1] + x[2]))
 
 
-def mean(ls):
-    return sum(ls) / len(ls)
+def mean(xs):
+    xs = list(xs)
+    if not xs:
+        return float('nan')
+    return sum(xs) / len(xs)
 
 
 good_list = st.lists(st.floats().filter(math.isfinite)).filter(bool)
@@ -358,3 +361,38 @@ def test_sphere():
         st.lists(st.floats()),
         lambda x: len(x) >= 3 and sum(map(safesquare, x)) >= 1)
     assert t == [0.0, 0.0, 1.0]
+
+
+def variance(xs):
+    return mean(map(safesquare, xs)) - safesquare(mean(xs))
+
+
+@pytest.mark.float
+def test_low_variance():
+    t = find(
+        st.lists(st.floats()).filter(lambda x: len(x) >= 10),
+        lambda x: variance(x) >= 1)
+    assert t == [0.0] * 9 + [4.0]
+
+
+@pytest.mark.float
+def test_minimal_bigger_than_one_is_two():
+    assert find(st.floats(), lambda x: x > 1) == 2.0
+
+
+def dtoi(x):
+    return struct.unpack(b'!Q', struct.pack(b'!d', x))[0]
+
+
+def itod(x):
+    return struct.unpack(b'!d', struct.pack(b'!Q', x))[0]
+
+
+@pytest.mark.float
+def test_between_one_and_two():
+    t = find(
+        st.floats(), lambda x: 1 < x < 2,
+        settings=Settings(max_shrinks=10 ** 6, generations=10000,))
+    for k in range(dtoi(1.0), dtoi(t)):
+        assert itod(k) <= t
+        assert not (1 < itod(k))
