@@ -143,6 +143,24 @@ class TestRunner(object):
                     self.last_data.buffer[v:]
                 )
                 i += 1
+
+            local_changes = -1
+            while local_changes < self.changed:
+                local_changes = self.changed
+                for c in range(1, 256):
+                    buf = self.last_data.buffer
+                    if buf.count(c) > 1:
+                        if self.incorporate_new_buffer(bytes(
+                            c - 1 if b == c else b
+                            for b in buf
+                        )):
+                            buf = self.last_data.buffer
+                            for d in range(c):
+                                if self.incorporate_new_buffer(bytes(
+                                    d if b == c - 1 else b
+                                    for b in buf
+                                )):
+                                    break
             k = 8
             for i in range(len(self.last_data.buffer) - k):
                 buf = self.last_data.buffer
