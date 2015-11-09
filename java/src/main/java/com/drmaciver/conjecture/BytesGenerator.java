@@ -8,9 +8,8 @@ public class BytesGenerator implements DataGenerator<byte[]> {
 		this.n = n;
 	}
 
-	@Override
-	public byte[] draw(TestData data) {
-		return data.drawBytes(this.n);
+	public byte[] doDraw(TestData data) {
+		return data.drawBytes(n);
 	}
 
 }

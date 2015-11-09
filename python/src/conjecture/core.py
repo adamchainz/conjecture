@@ -286,10 +286,19 @@ class TestRunner(object):
                     if k >= len(buf):
                         break
                     if buf[j] > 0 and buf[k] > 0 and buf[j] != buf[k]:
-                        self.incorporate_new_buffer(
+                        if self.incorporate_new_buffer(
                             buf[:j] + bytes([buf[j] - 1]) + buf[j+1:k] +
                             bytes([buf[k] - 1]) + buf[k+1:]
-                        )
+                        ):
+                            break
+                    if buf[j] == 0:
+                        break
+                    for t in range(256):
+                        if self.incorporate_new_buffer(
+                            buf[:j] + bytes([buf[j] - 1]) + buf[j+1:k] +
+                            bytes([t]) + buf[k+1:]
+                        ):
+                            break
 
     def mutate_data_to_new_buffer(self):
         n = min(len(self.last_data.buffer), self.last_data.index)
