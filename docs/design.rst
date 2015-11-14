@@ -123,11 +123,12 @@ produces good ascii output. The following is the current chosen ordering of the 
       '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
       'A', 'a', 'B', 'b', 'C', 'c', 'D', 'd', 'E', 'e', 'F', 'f', 'G', 'g',
       'H', 'h', 'I', 'i', 'J', 'j', 'K', 'k', 'L', 'l', 'M', 'm', 'N', 'n',
-      'O', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+      'O', 'o', 'P', 'p', 'Q', 'q', 'R', 'r', 'S', 's', 'T', 't', 'U', 'u',
+      'V', 'v', 'W', 'w', 'X', 'x', 'Y', 'y', 'Z', 'z',
       ' ',
-      ',', '.', '?', '!', ':', ';',
       '_', '-', '=', '~',
       '"', "'",
+      ':', ';', ',', '.', '?', '!',
       '(', ')', '{', '}', '[', ']', '<', '>',
       '*', '+', '/', '&', '|', '%',
       '#', '$', '@',  '\\', '^', '`',
@@ -137,6 +138,7 @@ produces good ascii output. The following is the current chosen ordering of the 
       '\x15', '\x16', '\x17', '\x18', '\x19', '\x1a', '\x1b', '\x1c', '\x1d',
       '\x1e', '\x1f',
   ]
+
 
 The ASCII reordering is not *strictly* necessary but produces nicer output by prioritising less messy
 characters and avoiding 'weird' control characters in the output where possible.
