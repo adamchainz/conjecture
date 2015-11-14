@@ -285,9 +285,10 @@ The shrink passes are:
    occurrences of that byte with the smaller byte.
 5. For each index, and each byte strictly smaller than the byte at that index, try replacing the byte at that 
    index with that byte in the following 3 ways:
-    1. Leaving all other indices unchanged
-    2. Replace the byte at the next index with 255
-    3. Randomize the rest of the array
+
+   a) Leaving all other indices unchanged
+   b) Replace the byte at the next index with 255
+   c) Randomize the rest of the array
 6. For each adjacent pair of bytes, if they are out of order swap them.
 7. For each zero byte in the buffer, try replacing it and every zero byte to the left of it up until the previous
    non-zero byte with 255 and decrement the non-zero byte by one.
