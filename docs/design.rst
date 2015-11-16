@@ -46,7 +46,7 @@ For example, the following is a good generator for 64-bit integers:
 .. code-block:: python
 
   def int64s():
-    return byteblock(4).map(lambda b: int.from_bytes(b, 'big', signed=True))
+    return byteblock(8).map(lambda b: int.from_bytes(b, 'big', signed=True))
 
 This will produce an order where positive is simpler than negative, and otherwise closer to zero is simpler
 (from_bytes with signed uses twos complement).
