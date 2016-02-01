@@ -22,10 +22,10 @@ High level idea
 The hard part of property based testing is shrinking. You implement a data generator, and then in order to get
 good output you need to implement shrinkers for that data.
 
-An idea that has been around for a while (it is implemented in Erlang QuickCheck, test.check and Hypothesis at the
-minimum) but was absent from the original QuickCheck is that in many cases you can get shrinking 'for free' by
-building your generators on top of existing ones and then just shrinking the inputs. For example, in Hypothesis
-if you wanted to produce a generator for sorted lists, you could do:
+An idea that has been around for a while (it is implemented in QuickCheck, both Erlang and Haskell, test.check
+and Hypothesis at the minimum) but was absent from the original QuickCheck is that in many cases you can get
+shrinking 'for free' by building your generators on top of existing ones and then just shrinking the inputs.
+For example, in Hypothesis if you wanted to produce a generator for sorted lists, you could do:
 
 .. code-block:: python
 
@@ -41,15 +41,16 @@ The key observation of Conjecture is that there is a single class of base strate
 build everything else: Fixed size blocks of bytes, shrinking lexicographically when viewed as a sequence of
 unsigned integers in [0, 256).
 
-For example, the following is a good generator for 64-bit integers:
+For example, the following is a good generator for unsigned 64-bit integers:
 
 .. code-block:: python
 
-  def int64s():
-    return byteblock(8).map(lambda b: int.from_bytes(b, 'big', signed=True))
+  def uint64s():
+    return byteblock(8).map(lambda b: int.from_bytes(b, 'big'))
 
-This will produce an order where positive is simpler than negative, and otherwise closer to zero is simpler
-(from_bytes with signed uses twos complement).
+If you want *unsigned* integers you can't just use two's complement, you want one's complement: Use the high
+bit as the sign bit and leave the remainder alone. This is to get the desired 'positive is simpler than negative,
+otherwise closer to zero is simpler' behaviou.
 
 So all that is needed is a good shrinker for blocks of bytes and everything else follows.
 
@@ -83,110 +84,167 @@ function passed to flatmap).
 In Conjecture we follow Hypothesis's lead of using mutability, but fortunately the emphasis on bytes allows for
 a much simpler approach:
 
-When drawing data for Conjecture, we draw a single large block of bytes up front. Our basic n byte strategy then
-just reads the next n bytes off the block and updates an index into it to point to after where it's read. Draws
-which try to read past the end of the buffer are marked as invalid.
+When drawing data for Conjecture, we are conceptually drawing from a single large block of bytes (see later for why
+this isn't strictly true). Our basic n byte strategy then just reads the next n bytes off the block and updates an
+index into it to point to after where it's read. Draws which try to read past the end of the buffer are marked as
+invalid.
 
 This reduces the entire process of simplification to one of simplifying a block of bytes. As well as meaning that
 we don't have to ever implement our own shrinkers, this turns out to have a number of advantages.
 
-However, this requires a number of further refinements to work well.
+This leads us to the following implementation:
 
-Refinement 1: Output simplification
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The next important insight is this: We only actually care about what is printed out by the test when it runs
-(e.g. in Hypothesis it prints 'falsifying example', the repr of the example, and then by an exception stack
-trace'). This then becomes a text string that we are trying to simplify.
-
-*Usually* we expect shrinking the input to shrink the output, but the dependencies can be complicated: For example,
-deleting a byte might cause boundaries to shift such that the output suddenly became radically more complicated.
-
-Thus what we do is we record an output stream as a sequence of bytes. We assume that these bytes represent utf-8
-text, or at least some ascii-compatible format. If they don't this won't 'break' anything but may result in
-unexpected preferences.
-
-We then define a preference order over outputs. Shrinks which result in an increase in that order are rejected (
-shrinks which produce the same output are accepted).
-
-The order is as follows:
-
-1. Fewer bytes is always better. More bytes is always worse.
-2. Given two outputs of the same length, we compare them in lexicographic order of pleasingness of their bytes.
-
-Where 'pleasingness' is a reordering of the bytes from 0 to 256 to reorder the first 127 bytes in an order that
-produces good ascii output. The following is the current chosen ordering of the ASCII characters:
 
 .. code-block:: python
 
-  CHR_ORDER = [
-      '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-      'A', 'a', 'B', 'b', 'C', 'c', 'D', 'd', 'E', 'e', 'F', 'f', 'G', 'g',
-      'H', 'h', 'I', 'i', 'J', 'j', 'K', 'k', 'L', 'l', 'M', 'm', 'N', 'n',
-      'O', 'o', 'P', 'p', 'Q', 'q', 'R', 'r', 'S', 's', 'T', 't', 'U', 'u',
-      'V', 'v', 'W', 'w', 'X', 'x', 'Y', 'y', 'Z', 'z',
-      ' ',
-      '_', '-', '=', '~',
-      '"', "'",
-      ':', ';', ',', '.', '?', '!',
-      '(', ')', '{', '}', '[', ']', '<', '>',
-      '*', '+', '/', '&', '|', '%',
-      '#', '$', '@',  '\\', '^', '`',
-      '\t', '\n', '\r',
-      '\x00', '\x01', '\x02', '\x03', '\x04', '\x05', '\x06', '\x07', '\x08',
-      '\x0b', '\x0c', '\x0e', '\x0f', '\x10', '\x11', '\x12', '\x13', '\x14',
-      '\x15', '\x16', '\x17', '\x18', '\x19', '\x1a', '\x1b', '\x1c', '\x1d',
-      '\x1e', '\x1f',
-  ]
+    class Overflow(Exception):
+        pass
+
+    class TestData(object):
+        def __init__(self, buffer):
+            self.buffer = buffer
+            self.index = 0
+
+        def draw_bytes(self, n):
+            if self.index + n &gt; len(self.buffer):
+                raise Overflow()
+            result = self.buffer[self.index:self.index+n]
+            self.index += n
+            return result
 
 
-The ASCII reordering is not *strictly* necessary but produces nicer output by prioritising less messy
-characters and avoiding 'weird' control characters in the output where possible.
-
-As well as helpfully avoiding cases where the shrinks are unexpectedly bad, this has a few nice properties:
-
-1. We are always at the current best solution, so we may implement a timeout without worrying that we're at a
-   point which is worse than we previously were.
-2. It improves performance in some cases because it allows us to stop the shrink earlier when there are still
-   valid shrinks left but they don't actually improve matters.
-
-Note: Although we only focus on the aesthetics of ascii, this works perfectly well for unicode output. When
-outputting in utf-8, all codepoints >= 127 will be ordered by code-point, because the order of length then
-bytewise lexicographical does the right thing here.
-
-Refinement 2: Manual costing
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Sometimes the lexicographical ordering of examples isn't quite what we want, so we provide a mechanism for
-manually hinting that something is worse than it looks. For example NaN is shorter and thus simpler than 10000.0,
-but we would much rather have the latter. When we had manually written shrinkers we could do this ourselves, but
-when shrinking comes entirely from the source input we have no acccess to the structure of values. Thus another
-mechanism is needed.
-
-To solve this we provide a lightweight hinting mechanism in the form of an incur_cost() function. This lets us
-impose a positive integer cost. 
-
-Prior to comparing output, we compare cost. A strictly lower cost is always better, a strictly higher cost is
-always worse, then with equal costs we fall back to output.
-
-In an original version, cost had the output length added to it - so for example 100 bytes of output and a cost of
-20 would be worse than a cost of 30 and 50 bytes of output. This turns out to be a bad idea because there can be
-a complicated relation between draws and data. The following example revealed this:
-
-.. code-block:: python
-
-  find(booleans().flatmap(lambda x: lists(just(x))), lambda x: len(x) >= 10).
-
-This is looking for a list consisting of the same boolean repeated multiple times which is of length at least
-10.
-
-According to the cost order, we want to find a list consisting of 10 False values. But False has one more
-character than True, so the byte length of the output here is 10 more. This can't be compensated for by any
-reasonable cost difference because the boolean is only drawn once! Hence the change to comparing costs first.
+      def draw(self, strategy):
+          return strategy.do_draw(self)
 
 
-Refinement 3: Automatic pruning
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    class SearchStrategy(object):
+          def __init__(self, do_draw=None):
+              if do_draw is not None:
+                  self.do_draw = do_draw
+
+          def do_draw(self, data):
+              raise NotImplementedError()
+
+          def map(self, f):
+              return SearchStrategy(lambda data: f(data.draw(self)))
+
+          def flatmap(self, f):
+              return SearchStrategy(lambda data: data.draw(f(data.draw(self))))
+
+So the key building blocks in conjecture are the ability to draw from the basic
+n-byte blocks and the ability to keep drawing from strategies interactively.
+
+This basic idea works OK, but trying to write good strategies on top of it or a
+good simplifier for the data proves challenging. However, a number of further refinements
+to the concept make it quite effective. In particular, getting TestData to record a lot of
+book-keeping information we can use later (such as the block boundaries) is very helpful.
+
+
+Getting good data
+-----------------
+
+It turns out to be hard to get good data off a pure byte stream. Conjecture does a number of things to make it
+easier.
+
+
+Distribution hints
+~~~~~~~~~~~~~~~~~~
+
+A problem we run into is that in this implementation, providing good data and good shrinking can end up in tension.
+
+For example, with a floating point generator, interpreting a block of four bytes as a float produces a very reasonable
+shrink (everything is simpler than nan, positive is simpler than negative, smaller is simpler than larger), but a lousy
+distribution of data (it is very biased towards the very small and the very large, almost never selects nan or infinity,
+and doesn't do a good job of selecting for cases where there are rounding issues). We want at the very least to priortize
+a number of special values.
+
+Doing this naively we would implement floats as something like a union of that plus a sample from special values. The problem
+is that because the sampling uses fewer bytes than the full float distribution it will always be regarded as "simpler" so you
+end up simplifying into bad values.
+
+This causes us to replace our basic strategy with not the n-byte strategy, but the n-byte strategy *with a distribution hint*.
+
+A distribution in this case is a function which takes a random number generator and gives a random n-byte block. This lets you
+customize the initial distribution of values while retaining good shrinking.
+
+Caveat: The reason this is a hint is that the data you get back from this strategy does not *necessarily* come from the
+distribution. Notably, events that occur with probability 0 in the distribution can occur in the data you get back.
+
+Conceptually we then run the fuzzer in two modes: In the first mode we are building up a buffer by repeatedly calling the
+distribution function to get the next bytes, then in the second one if we found an interesting buffer that way we just try
+to shrink it using bytewise shrinking on the buffer.
+
+I say "conceptually" because there's actually a third mode.
+
+Mutation
+~~~~~~~~
+
+One of the big features that Hypothesis has that the above system lacks is much smarter data generation: Hypothesis is
+good at generating correlated data, and has an adaptive assume functionality that allows it to select data that
+satisfies a test's assumptions much more often than might be expected.
+
+The exact mechanism that Hypothesis uses is hard to replicate in Conjecture, but what's described in this section is
+a sort of analogue. It's not exactly equivalent and does some things better and some things worse than Hypothesis.
+
+The idea is that rather than having two phases, build and shrink, we have three phases: Build, mutate and shrink.
+
+Build is as described above. Mutate works as follows:
+
+1. We have a previous buffer we are mutating from
+2. We have a *mutator*, which is a function that takes a previous block of n bytes + a distribution hint for it and
+   generates a random new n-byte block.
+3. We then run the test similar to build mode, but each time we ask for a new block we get the mutator's block based
+   on what we generated last time and what the mutator decides to do.
+
+In the current implementation, this works as follows (but is liable to change details in the near future):
+
+A mutator is a mixture of three single purpose mutators. Each draw randomly chooses one and uses that. Single purpose
+mutators include:
+
+1. Use the previous block
+2. Use the distribution
+3. Draw something lexicographically greater than the previous block
+4. Draw something lexicographically smaller than the previous block
+5. Draw a duplicate of a block we've already drawn
+6. Draw a block that is distinct from all the blocks of this size we've already drawn.
+
+We then require our mutators to *ratchet*. What this means is that we only allow certain transitions, and if a mutator
+produces a rejected transition we throw it away and draw a new one.
+
+The way this works is to add the notion of a *state* for a TestData at the end:
+
+1. Overrun: The test tried to read past the end of the buffer.
+2. Invalid: The test marked the data as invalid at some point
+3. Valid: Nothing to see here.
+4. Interesting: This is the sort of thing we want to see 
+
+The idea is that a higher state is always better. A mutation is accepted if the status is at least the previous status,
+rejected if it's less. In future there may be some special handling of when it's equal (e.g. using heuristics to show
+that even though a test is still over running, it's getting better/worse), but there isn't right now.
+
+We then run mutation as follows:
+
+* We draw a new mutator
+* We run it up to ten times.
+* If at any point a transition is rejected, we throw away this mutator early.
+
+Starting from a fresh buffer, we run the above in a loop until we have performed 50 mutations. At that point we start
+afresh.
+
+If at any point the status strictly increases, we reset the mutation count to zero. If it ever reaches Interesting, we
+stop the entire mutation process and proceed to shrinking.
+
+
+Shrinking data
+--------------
+
+The original idea was that we could just shrink the buffer with a relatively standard binary file shrinking
+algorithm. This turned out to be mostly impractical.
+
+A number of refinements help a lot.
+
+Automatic pruning
+~~~~~~~~~~~~~~~~~
 
 We want to be quite aggressive about reducing the amount of data consumed, because doing so produces better
 examples and makes future shrinking easier.
@@ -209,8 +267,9 @@ These are all lexicographically valid, but the middle one causes us to draw fewe
 was automatically pruned. This makes the second shrink invalid because it will now probably cause us to read past
 the end of the buffer.
 
-Refinement 4: Interval marking
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Interval marking
+~~~~~~~~~~~~~~~~
 
 The most important shrinking operations are ones that can delete data so as to reduce the size of the example
 outputs: This is both true because smaller examples are better, and also because smaller data lets us focus more
@@ -249,175 +308,42 @@ This allows both a shrink at the beginning which with automatic pruning will pro
 but it also allows for elements in the middle of the list: If an interval containing a (stopping, example) pair is
 deleted, we just skip that iteration of the loop.
 
-Shrinker implementation
-~~~~~~~~~~~~~~~~~~~~~~~
+Blockwise shrinking
+~~~~~~~~~~~~~~~~~~~
 
-The shrinker takes a record of a previous test run and tries various replacement buffers. All of these are either
-strictly shorter or the same length and lexicographically before the previous buffer.
+Other than deleting, most shrinking for Conjecture works at the block level: We focus on shrinks that respect
+the n-byte blocks that were drawn. It doesn't matter if these end up being violated in the course of the
+shrinking, but by starting with them we're able to focus on what's important.
 
-When a buffer is considered, it is run through the test. If it is still interesting, its output and cost are
-examined and if they are not worse than that of the previous then the current best is replaced.
+So when running we record where the block boundaries are and their lengths. Then when shrinking we:
 
-Note: 'Not worse' rather than 'strictly better' is a deliberate decision made on the basis of some examples where
-it can take multiple shrink passes to improve the example which don't initially appear to affect the result.
+1. For each n-byte block, try replacing it with a simpler n-byte block that is also present in the TestData.
+2. For each duplicate block, try performing a simultaneous bytewise shrink on every copy of that block (i.e.
+   keeping them as duplicates but making them smaller).
+3. For each block, perform a bytewise shrink on them individually.
 
-The design of the shrinker is in terms of passes of increasing difficulty. If a pass fails to make any changes,
-we proceed on to the next one. Otherwise once the pass has completed we start again from the beginning. The
-early passes tend to be linear in the size of the buffer, the latter quadratic, with the hope being that by the
-time we make it to the quadratic passes the buffer is small enough that we can afford that.
+In the end it seems to be better to *not* perform a bytewise shrink on the whole buffer: It causes problems
+where by moving data from one block to another you end up with visually worse examples even though it's better
+in the underlying ordering. These are then fixed if you let the shrinker run for long enough, but often the
+shrinker is run on a timeout.
 
-We iterate until make it through all the passes with no successful shrinks, or until we hit one of the stopping
-points. The stopping points are:
+The bytewise shrink process tries a number of things to keep the block of the same length but lexicographically
+earlier.
 
-1. Once we have exceeded a certain run time
-2. Once we have exceeded a certain number of successful shrinks (this tends to be a sign that we're not usefully
-   making progress).
+Interval cloning
+~~~~~~~~~~~~~~~~
 
-The exact set of shrink passes is still under fairly active experimentation. Here is a snapshot of what they were
-at the time of this writing:
+One of the difficulties causes is when lexicographical reduction can cause you to read less data somewhere
+in the middle, and if you then deleted the extra data that wasn't read it could skip on to the next bit and
+everything would work.
 
-The shrink passes are:
+I don't currently have a very good solution for this, but one thing that seems to help is interval cloning:
+Take every pair of intervals where one is strictly shorter than the other and try to replace the longer one
+with the shorter one.
 
-1. For each interval, delete that interval.
-2. For i from 0 to 7, try unsetting the i'th bit on every byte in the buffer.
-3. For each interval, sort that interval bytewise.
-4. For each byte that appears more than once in the output, and each strictly smaller byte, try replacing all
-   occurrences of that byte with the smaller byte.
-5. For each index, and each byte strictly smaller than the byte at that index, try replacing the byte at that 
-   index with that byte in the following 3 ways:
+This doesn't always work *brilliantly*, and is quadratic in the side of the data, but it seems helpful and
+I don't currently have a better solution.
 
-   a) Leaving all other indices unchanged
-   b) Replace the byte at the next index with 255
-   c) Randomize the rest of the array
-6. For each adjacent pair of bytes, if they are out of order swap them.
-7. For each zero byte in the buffer, try replacing it and every zero byte to the left of it up until the previous
-   non-zero byte with 255 and decrement the non-zero byte by one.
-8. For each pair of indices with the same bytewise value, try replacing them with each smaller byte if they are 
-   non-zero. If they are zero, if their preceding indices are both non-zero try replacing the pair with 255 and
-   subtracting one from their predecessor.
-
-Some of these may seem slightly weird and arbitrary. They've typically been picked with specific examples in mind.
-In particular, the pair based ones are designed to allow for simultaneous simplification.
-
-This appears to strike a good balance between performance and quality. In particular it seems to be able to reach
-a lot of levels of example quality that are almost impossible with a classic QuickCheck, albeit at the cost of a
-somewhat worse runtime.
-
-Two interesting examples from the example quality tests:
-
-.. code-block:: python
-
-  def test_containment():
-      u, v = find(
-          st.tuples(intlist, st.n_byte_unsigned(8)),
-          lambda uv: uv[1] in uv[0] and uv[1] >= 100
-      )
-      assert u == [100]
-      assert v == 100
-
-This is essentially unachievable to a classic QuickCheck: It wouldn't find any examples at all (see the next
-section for why Conjecture can) and if you somehow conspired to let it it wouldn't
-be able to do simultaneous shrinking of the two. Hypothesis can do simultaneous shrinking, but can only do it within
-lists. In Conjecture simultaneous shrinking will happen regardless of any structural relation between the examples,
-because it happens at the byte level so the relation is irrelevant.
-
-.. code-block:: python
-
-
-  def test_minimize_sets_of_sets():
-      sos = st.lists(st.lists(st.n_byte_unsigned(8)).map(frozenset)).map(set)
-
-      def union(ls):
-          return reduce(operator.or_, ls, frozenset())
-
-      x = find(sos, lambda ls: len(union(ls)) >= 30)
-      assert x == {frozenset(range(30))}
-
-This example tries to find a set of sets with at least 30 elements in their union. In QuickCheck or Hypothesis
-this would probably result in multiple disjoint sets whose union was the range 0 to 30 (hopefully), but they've
-got almost no hope of finding a single element example. In Conjecture, as a consequence of how lists are represented
-at the byte level, adjacent lists can be merged together which produces a better example.
-
-This isn't a particularly interesting thing in its own right, but it demonstrates the sort of shrinking that can
-happen when you don't have to care abotu the structure.
-
-
-Test execution details
-----------------------
-
-The abstract API for running Conjecture doesn't know anything about tests. It provides a TestData object, which
-exposes the following operations:
-
-1. draw_bytes(n) -> draws n bytes from the buffer, or sets the status to overrun and terminates the test.
-2. start_example/stop_example -> mark example boundaries
-3. incur_cost(c) -> add c to the cost of this example
-4. mark_invalid -> set the status of the test data to invalid and terminate the test
-5. mark_interesting -> set the status of the test data to interesting and terminate the test.
-
-A TestData object can be in one of four states:
-
-1. Overrun: The test tried to read past the end of the buffer.
-2. Invalid: The test marked the data as invalid at some point
-3. Valid: Nothing to see here.
-4. Interesting: This is the sort of thing we want to see 
-
-The goal is to find an interesting TestData object. In aid of this we have a TestRunner, which takes some settings
-and a function that is passed a TestData. It then generates data until it gets bored or one of them produces a
-status of interesting.
-
-If we find an interesting TestData we proceed to shrinking as per above, otherwise we stop the test with no result.
-
-Quality of initial data is currently worse than Hypothesis (which has features designed to be good at correlated
-output) but still pretty good. It's also able to do some interesting things that would otherwise be impossible in
-normal QuickCheck.
-
-Data is generated in fixed size blocks (this is configurable if you need to generate larger examples but defaults
-to 8K), drawn uniformly at random. It is then immediately passed to the test function.
-
-We then proceed through a series of mutations. A mutation takes the existing buffer and changes it in some way.
-The test is then run. If it would lower the status of the example (e.g. valid to invalid, invalid to overrun,
-etc the result is discarded). Otherwise it is accepted.
-
-A fixed number of mutations (10 by default) is tried, then if we haven't found an interesting buffer we start
-again from the beginning.
-
-After we've found 200 valid examples or 1000 examples total (again, configurable) without any being interesting
-we stop the test.
-
-The exact mutations tried are still a work in progress, but the current set is:
-
-If the current status is overrun:
-
-The goal here is to make the input smaller, which should happen if you reduce the byte values and the strategy
-is well designed (if not there's not much you can do). The only mutation operation while overrun is that you take
-each byte, and with equal probability you replace it with 0, replace it with a random value in [0, b] or leave it
-alone.
-
-This should usually get you into a non-overrun state pretty quickly, moving on to the next set of mutations:
-
-If the current status is valid or invalid:
-
-1. Pick a random index in the read section of the buffer and change the byte there - with equal probabilities,
-   replace it with 0, 255 or a new random byte.
-2. Pick a random interval and clone it over another random interval.
-
-The second one allows some interesting possibilities because you can do things like have complicated dependencies
-between examples. This is why the test_containment example from above works.
-
-This needs more work: It's hard to get a good balance between finding desirable data with high probability and
-not getting stuck in boring areas of the search space.
-
-Design goals
-~~~~~~~~~~~~
-
-There are two design goals for this stage, neither of which are currently  well met, both of which are trying to
-claim back some of the benefits of Hypothesis data generation over a pure QuickCheck:
-
-1. Correlated output: When Hypothesis generates a list it generates interesting correlations amongst the elements,
-   so it can 
-2. Adaptive assume: Hypothesis satisfies assumptions much more than pure chance would suggest, using its parameter
-   system. The fact that transitions from valid to invalid states are not permitted here *should* help achieve that,
-   but this needs more investigation.
 
 Frequently Asked/Anticipated Questions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -425,12 +351,9 @@ Frequently Asked/Anticipated Questions
 How is this different from Quickcheck style testing?
 ----------------------------------------------------
 
-For starters it has most of the benefits that Hypothesis does over classic Quickcheck. In particular it is
-possible to serialize arbitrary examples after minimization, it works transparently with tests that try to
-perform side effects or mutate the values you've passed in, and you can chain data generation together while
-retaining simplification.
+It has all of the advantages of Hypothesis, but it's simpler, both from a usage and implementation point of view.
 
-Its two main advantages over Hypothesis from a usage point of view are:
+Its main advantages over Hypothesis from a usage point of view are:
 
 1. You can mix test execution and data generation freely. For example, if you perform a calculation in your
    test which returns a list of values and then pick an arbitrary value from that list, that's a random choice
@@ -439,16 +362,25 @@ Its two main advantages over Hypothesis from a usage point of view are:
    generation. Hypothesis blurs this a bit, but at the cost of a very complicated implementation for doing so.
 2. It is much easier to define your own data generation, because you don't have to define simplification rules
    at all.
+3. It has a built in notion of data size, which helps deal with the problem of accidentally generating too large
+   data.
+4. Hypothesis has a bit of a "locality" problem - e.g. if you have tuples(integers(), integers()), Hypothesis has
+   no ability to tell that the two integers() are the same things, so can't do anything to shrink or test interactions
+   between them. Conjecture can easily. An example of this is that Conjecture is able to do something like tuples(
+   lists(integers()), integers()).filter(lambda x: x[1] in x[0]) and this works correctly - it can generate large
+   examples and it can perform simultaneous shrinking between them.
 
 
 Will this work with simplifying complex data?
 ---------------------------------------------
 
-Yes.
+Yes. The branch rewriting Hypothesis on top of this now has better shrinking than Hypothesis does in master.
 
-Take a look at the `example quality test suite <https://github.com/DRMacIver/conjecture/blob/master/python/tests/test_example_quality.py>`_
-for the Python research prototype for some examples of what it can do. The example quality significantly outperforms
-that of QuickCheck. 
+Will this generate good data?
+-----------------------------
+
+It should do. The current data quality is better than Hypothesis in some places, worse than others, and most of the
+places where it's worse are I think resolvable.
 
 What are the downsides?
 -----------------------
@@ -462,11 +394,7 @@ The limitations I suspect are intrinsic are:
 2. The API is pretty intrinsically imperative. In much the same way that Quickcheck doesn't adapt well to
    imperative languages, I don't think this will adapt well to functional ones. There's a reasonably natural
    monadic interface so it shouldn't be *too* bad, but it's probably going to feel a bit alien.
-3. Shrinking can be quite slow for very complicated examples when compared to Hypothesis. It usually produces
-   something reasonable within the minute timeout though.
-4. The data quality is not as good as Hypothesis because it lacks the parametrization feature. I've not yet
-   figured out how to fix this. However the data quality is probably about as good as if not better than a
-   classic QuickCheck.
+3. You can't actually use it yet, as it's still a research prototype.
 
 
 References
