@@ -394,7 +394,9 @@ The limitations I suspect are intrinsic are:
 2. The API is pretty intrinsically imperative. In much the same way that Quickcheck doesn't adapt well to
    imperative languages, I don't think this will adapt well to functional ones. There's a reasonably natural
    monadic interface so it shouldn't be *too* bad, but it's probably going to feel a bit alien.
-3. You can't actually use it yet, as it's still a research prototype.
+3. Shrinking tends to be slower than in Hypothesis in many instances.
+4. Conjecture is less able to detect duplicates than Hypothesis is.
+5. You can't actually use it yet, as it's still a research prototype.
 
 
 References
