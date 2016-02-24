@@ -1,3 +1,4 @@
+
 ===================
 What is Conjecture?
 ===================
@@ -50,7 +51,7 @@ For example, the following is a good generator for unsigned 64-bit integers:
 
 If you want *unsigned* integers you can't just use two's complement, you want one's complement: Use the high
 bit as the sign bit and leave the remainder alone. This is to get the desired 'positive is simpler than negative,
-otherwise closer to zero is simpler' behaviou.
+otherwise closer to zero is simpler' behaviour.
 
 So all that is needed is a good shrinker for blocks of bytes and everything else follows.
 
