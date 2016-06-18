@@ -34,11 +34,11 @@ Community
 ----------
 
 Conjecture is very young and doesn't really have a community of its own, but
-discussion of it is extremely welcome in the `Hypothesis Community <http://hypothesis.readthedocs.org/en/latest/community.html>`_.
+discussion of it is extremely welcome in the `Hypothesis Community <https://hypothesis.readthedocs.io/en/latest/community.html>`_.
 
 In particular we have the IRC channel #hypothesis on Freenode.
 
-Please note that there is `a code of conduct <http://hypothesis.readthedocs.org/en/latest/community.html#code-of-conduct>`_
+Please note that there is `a code of conduct <https://hypothesis.readthedocs.io/en/latest/community.html#code-of-conduct>`_
 in effect in this community and you are expected to adhere to it.
 
 ------------------
@@ -46,7 +46,7 @@ Development Status
 ------------------
 
 Conjecture is currently a prototype. The python code base demonstrates that it works (extremely well in fact)
-but is not ready to use, and besides you should probaby be using `Hypothesis <http://hypothesis.readthedocs.org/en/latest/>`_ instead.
+but is not ready to use, and besides you should probaby be using `Hypothesis <https://hypothesis.readthedocs.io/en/latest/>`_ instead.
 
 If you're interested in having Conjecture available for your language, I am able and willing to do so for a very
 reasonable day rate: The design is one that is extremely easy to port to new languages, so in most cases it is
